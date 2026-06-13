@@ -87,8 +87,8 @@ export default function CartPage() {
                 </div>
 
                 {items.map((item) => {
-                  const score     = item.companyScore  ?? item.trustScore  ?? 70;
-                  const status    = item.companyStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
+                  const score     = item.productScore  ?? item.trustScore  ?? 70;
+                  const status    = item.productStatus ?? (score >= 75 ? "VERIFIED" : "TRUSTED");
                   const badgeCls  = status === "VERIFIED" ? "bg-[#067D62] text-white" : status === "FLAGGED" ? "bg-[#CC0C39] text-white" : "bg-[#FF9900] text-[#0F1111]";
                   const badgeLbl  = status === "VERIFIED" ? "Verified" : status === "FLAGGED" ? "Flagged" : "Mixed";
                   return (

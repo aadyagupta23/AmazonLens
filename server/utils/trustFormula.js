@@ -1,14 +1,13 @@
 /**
- * TrustLens™ formula — v2
+ * TrustLens™ formula — v2  (product-level)
  *
  * Score = 0.50·Rs + 0.30·Kp + 0.20·Ri
  *
- *   Rs  Review Score    trustScore / 100            weight 0.50
- *   Kp  Keep Rate       1 − Rg  (buyers who kept)  weight 0.30
- *   Ri  Reorder Index   seller rating normalised    weight 0.20
+ *   Rs  Review Score    trustScore / 100                      weight 0.50
+ *   Kp  Keep Rate       1 − Rg  (this product's return rate)  weight 0.30
+ *   Ri  Reorder Index   this product's reorder rate / 0.45    weight 0.20
  *
- * Rg (global return rate) is inferred from return-signal phrases
- * and suspicious review ratio across the seller's catalogue.
+ * All three components are per-product, not per-seller.
  */
 
 /** Rg — Global Return Rate (0–1) from review language + suspicious ratio. */
@@ -56,22 +55,30 @@ export function computeDeliveryRate(product) {
  * Core formula:  score = round((0.50·Rs + 0.30·Kp + 0.20·Ri) × 100)
  * User returns: Rg += 3% per return, plus 2-pt direct deduction per return.
  *
- * Returns: { companyScore, status, Rg, Rs, Kp, Ri, raw, returnPenalty }
+ * overrides.Rg = this product's actual return rate (from customer DB)
+ * overrides.Ri = this product's reorder rate normalised to 0–1
+ *
+ * Returns: { productScore, status, Rg, Rs, Kp, Ri, raw, returnPenalty }
  */
-export function computeCompanyScore(product, sellerProducts, userReturns = 0) {
-  let  Rg = computeRg(sellerProducts);
+export function computeProductScore(product, userReturns = 0, overrides = {}) {
+  let Rg = overrides.Rg ?? 0.10; // default 10% if no customer data
   Rg = Math.min(0.60, Rg + userReturns * 0.03);
 
   const Rs = computeRs(product);
   const Kp = computeKp(Rg);
-  const Ri = computeRi(product);
+  const Ri = overrides.Ri ?? computeRi(product);
 
   const raw = 0.50 * Rs + 0.30 * Kp + 0.20 * Ri;
 
   const returnPenalty = Math.min(30, userReturns * 2);
-  const companyScore  = Math.max(5, Math.min(98, Math.round(raw * 100) - returnPenalty));
+  const productScore  = Math.max(5, Math.min(98, Math.round(raw * 100) - returnPenalty));
 
-  return { companyScore, status: scoreToStatus(companyScore), Rg, Rs, Kp, Ri, raw, returnPenalty };
+  return { productScore, status: scoreToStatus(productScore), Rg, Rs, Kp, Ri, raw, returnPenalty };
+}
+
+/** @deprecated use computeProductScore */
+export function computeCompanyScore(product, sellerProducts, userReturns = 0, overrides = {}) {
+  return computeProductScore(product, userReturns, overrides);
 }
 
 /** VERIFIED ≥ 75 · TRUSTED 50–74 · no negative label below 50 */
