@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { senseItems } from "../data/mockData.js";
 import { getAllProducts } from "./products.js";
-import { computeCompanyScore, computeDeliveryRate } from "../utils/trustFormula.js";
+import { computeProductScore, computeDeliveryRate } from "../utils/trustFormula.js";
+import { getProductStats } from "../data/customers.js";
+import { getCompanyByName } from "../data/companies.js";
 
 const router = Router();
 
@@ -11,13 +13,12 @@ router.get("/predictions", (req, res) => {
   res.json({ predictions: sorted });
 });
 
-// ── Seller-trust breakdown ─────────────────────────────────────────────────
+// ── Product trust breakdown ────────────────────────────────────────────────
 /**
  * POST /api/sense/seller-trust
  * Body: { productId, userReturns? }
  *
- * Returns the same companyScore that is attached to the product in getAllProducts(),
- * plus full signal breakdown and user-return modifier.
+ * Returns productScore computed from this product's own return/reorder rates.
  */
 router.post("/seller-trust", async (req, res) => {
   const { productId, userReturns = 0 } = req.body || {};
@@ -26,15 +27,20 @@ router.post("/seller-trust", async (req, res) => {
   if (!product) return res.status(404).json({ message: "Product not found" });
 
   const sellerName = product.soldBy || "Unknown Seller";
-  const sellerProducts = allProducts.filter((p) => p.soldBy === sellerName);
 
-  // Compute fresh (with user returns applied on top of baseline)
-  const { companyScore, status, Rg, Rs, Kp, Ri, raw, returnPenalty } =
-    computeCompanyScore(product, sellerProducts, userReturns);
+  // ── Pull per-product rates from customer database ──────────────────────
+  const productStats = getProductStats(productId);
+  const realRg   = productStats.returnRate;                     // this product's return rate
+  const realRi   = Math.min(1, productStats.reorderRate / 0.45); // this product's reorder rate, normalised
+  const company  = getCompanyByName(sellerName);
+
+  // Compute score from this product's own data
+  const { productScore, status, Rg, Rs, Kp, Ri, raw, returnPenalty } =
+    computeProductScore(product, userReturns, { Rg: realRg, Ri: realRi });
 
   // ── Derived display values ─────────────────────────────────────────────
-  const reorderPct  = Math.round(Ri * 40 + 20);   // seller-rating → 20–60%
-  const keepPct     = Math.round(Kp * 100);         // buyers who kept item
+  const reorderPct  = Math.round(productStats.reorderRate * 100); // this product's reorder %
+  const keepPct     = Math.round(Kp * 100);                       // buyers who kept this product
   const onTime      = computeDeliveryRate(product);
   const sellerYear  = product.sellerSince || "2020";
   const sellerAge   = new Date().getFullYear() - parseInt(sellerYear);
@@ -74,17 +80,17 @@ router.post("/seller-trust", async (req, res) => {
         "return-signal phrases in verified reviews and suspicious review ratios. " +
         `Score: Kp = ${Kp.toFixed(2)} (weight 30% of total).`,
     },
-    // 3. Reorder rate — shown if seller rating ≥ 3.8 (Ri ≥ 0.70)
+    // 3. Reorder rate — shown if Ri ≥ 0.70
     Ri >= 0.70 && {
       key: "reorders",
       icon: "RefreshCw",
-      headline: `${reorderPct}% of buyers purchase from this seller again`,
+      headline: `${reorderPct}% of buyers reordered this product`,
       subtitle: Ri >= 0.85
-        ? "Strong repeat purchase signal — buyers trust this seller consistently"
-        : "Buyers come back to this seller, showing consistent satisfaction",
+        ? "Strong repeat purchase signal — buyers keep coming back for this specific product"
+        : "Buyers return to purchase this product again, showing consistent satisfaction",
       howWeMeasure:
-        "Reorder index is derived from the seller's star rating, normalised to 0–1. " +
-        "Higher seller ratings strongly predict repeat purchase behaviour. " +
+        "Reorder index is the share of buyers who purchased this specific product more than once, " +
+        "normalised to 0–1 (45% reorder rate = Ri of 1.0). " +
         `Score: Ri = ${Ri.toFixed(2)} (weight 20% of total).`,
     },
     // 4. On-time delivery — supplementary, shown if ≥ 90%
@@ -110,11 +116,25 @@ router.post("/seller-trust", async (req, res) => {
   ].filter(Boolean);
 
   res.json({
-    companyScore,
+    productScore,
     status,
     sellerName,
-    productCount: sellerProducts.length,
+    totalBuyers: productStats.totalBuyers,
     signals,
+    productStats: {
+      totalBuyers:  productStats.totalBuyers,
+      returnRate:   productStats.returnRate,
+      reorderRate:  productStats.reorderRate,
+      avgRating:    productStats.avgRating,
+    },
+    // Company profile from companies database
+    company: company ? {
+      verified:     company.verified,
+      foundedYear:  company.foundedYear,
+      category:     company.category,
+      fulfillment:  company.fulfillment,
+      verificationNote: company.verificationNote || null,
+    } : null,
     formula: {
       Rs: parseFloat(Rs.toFixed(3)),
       Kp: parseFloat(Kp.toFixed(3)),

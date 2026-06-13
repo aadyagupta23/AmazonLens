@@ -67,6 +67,7 @@ function SignalRow({ signal, isLast }) {
 
 export default function TrustPanel({ data, loading, sellerName }) {
   const [expanded, setExpanded] = useState(true);
+  const [scoreInfoOpen, setScoreInfoOpen] = useState(false);
   const style = STATUS_STYLE[data?.status] || STATUS_STYLE.TRUSTED;
   const signals = data?.signals || [];
 
@@ -83,7 +84,7 @@ export default function TrustPanel({ data, loading, sellerName }) {
               <span className="text-[#FF9900]">Lens</span>
               <span className="text-[#565959] font-normal text-xs">™</span>
             </div>
-            <div className="text-[#565959] text-[11px] leading-tight">Company trust score</div>
+            <div className="text-[#565959] text-[11px] leading-tight">Product trust score</div>
           </div>
         </div>
 
@@ -92,13 +93,74 @@ export default function TrustPanel({ data, loading, sellerName }) {
             <>
               <span className="text-sm font-bold px-2.5 py-1 rounded-full"
                 style={{ backgroundColor: style.bg, color: style.text, border: `1px solid ${style.border}` }}>
-                {data.companyScore}<span className="font-normal text-xs">/100</span>
+                {data.productScore}<span className="font-normal text-xs">/100</span>
               </span>
               <span className="flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full text-white"
                 style={{ backgroundColor: style.pill }}>
                 <Check size={10} strokeWidth={3} />
                 {data.status}
               </span>
+
+              {/* ⓘ score info button */}
+              <div className="relative">
+                <button
+                  onClick={() => setScoreInfoOpen((v) => !v)}
+                  className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
+                  aria-label="How is this score calculated?"
+                >
+                  <Info size={12} />
+                </button>
+
+                {scoreInfoOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setScoreInfoOpen(false)} />
+                    <div className="absolute right-0 top-8 z-30 w-80 bg-[#131921] rounded-2xl shadow-2xl p-5">
+                      <div className="absolute right-[9px] top-[-6px] w-3 h-3 rotate-45 bg-[#131921]" />
+
+                      <p className="text-[#FF9900] text-[10px] font-bold uppercase tracking-widest mb-3">
+                        How TrustLens calculates this score
+                      </p>
+
+                      {/* Formula */}
+                      <div className="space-y-2 mb-4">
+                        {[
+                          { label: "Review quality (Rs)", pct: "50%", detail: "Authenticity score of verified buyer reviews — filters suspicious patterns" },
+                          { label: "Keep rate (Kp)", pct: "30%", detail: "% of buyers who kept the item (1 − return rate) across this seller's catalogue" },
+                          { label: "Reorder rate (Ri)", pct: "20%", detail: "How often buyers purchase from this seller again — a strong satisfaction signal" },
+                        ].map(({ label, pct, detail }) => (
+                          <div key={label} className="flex gap-3">
+                            <span className="text-[#FF9900] font-bold text-xs w-8 flex-shrink-0 pt-0.5">{pct}</span>
+                            <div>
+                              <p className="text-white text-xs font-medium leading-tight">{label}</p>
+                              <p className="text-white/50 text-[11px] leading-snug mt-0.5">{detail}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Thresholds */}
+                      <div className="border-t border-white/10 pt-3 mb-3 flex gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                          <span className="text-white/70 text-[11px]"><b className="text-white">VERIFIED</b> ≥ 75</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                          <span className="text-white/70 text-[11px]"><b className="text-white">TRUSTED</b> 50–74</span>
+                        </div>
+                      </div>
+
+                      {/* Vendor note */}
+                      <div className="bg-white/5 rounded-xl px-3 py-2.5">
+                        <p className="text-white/60 text-[11px] leading-relaxed">
+                          <span className="text-white/90 font-medium">Only verified positives are shown to buyers.</span>{" "}
+                          Sellers with lower scores aren't penalised publicly — the score shapes Amazon's internal ranking and helps sellers identify where to improve.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </>
           )}
           {loading && <span className="text-xs text-[#FF9900] font-medium animate-pulse">Analyzing…</span>}
@@ -150,7 +212,8 @@ export default function TrustPanel({ data, loading, sellerName }) {
           <div className="px-4 pb-4 pt-2 border-t border-gray-100 mt-1">
             <p className="text-[10px] text-[#999] leading-relaxed">
               Score = 50% review quality · 30% keep rate · 20% reorder rate.
-              Calculated across {data.productCount > 1 ? `${data.productCount} products` : "this product"} by {sellerName || "this seller"}.
+              Score = 50% review quality · 30% keep rate · 20% reorder rate.
+              {data.totalBuyers > 0 && ` Based on ${data.totalBuyers} verified buyers of this product.`}
             </p>
           </div>
         </>

@@ -26,9 +26,8 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const { startAddToPlan, plans } = useCoPlanner();
   const wishlisted = isInWishlist(product.id);
 
-  // Use the server-computed company score; fall back to static trustScore if absent
-  const score  = product.companyScore  ?? product.trustScore  ?? 70;
-  const status = product.companyStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
+  const score  = product.productScore  ?? product.trustScore  ?? 70;
+  const status = product.productStatus ?? (score >= 75 ? "VERIFIED" : "TRUSTED");
   const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.MIXED;
   const badgeLabel = STATUS_LABEL[status] ?? status;
 
