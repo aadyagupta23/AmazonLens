@@ -16,11 +16,15 @@ import CoPlannerPage from "./pages/CoPlannerPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import SustainabilityPage from "./pages/SustainabilityPage.jsx";
 import StubPage from "./pages/StubPage.jsx";
+import AmazonLensAssistant from "./components/AmazonLensAssistant.jsx";
+import BundlesPage from "./pages/BundlesPage.jsx";
+import BundleDetailPage from "./pages/BundleDetailPage.jsx";
 
 export default function App() {
   return (
     <div className="min-h-screen bg-[#EAEDED]">
       <Navbar />
+      <AmazonLensAssistant />
       <Routes>
         <Route path="/" element={<Homepage />} />
         <Route path="/s" element={<SearchResults />} />
@@ -37,6 +41,8 @@ export default function App() {
         <Route path="/co-planner" element={<CoPlannerPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/sustainability" element={<SustainabilityPage />} />
+        <Route path="/bundles" element={<BundlesPage />} />
+        <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
         <Route path="/prime" element={<StubPage />} />
         <Route path="/help" element={<StubPage />} />
         <Route path="/sell" element={<StubPage />} />

@@ -1889,6 +1889,104 @@ export const bundles = [
       { id: "p002", name: "JBL Cinema SB271 Soundbar", price: 8999 },
       { id: "p008", name: "Fire TV Stick 4K Max", price: 0, isFree: true }
     ]
+  },
+
+  {
+    id: "b002",
+    name: "Complete Study Setup",
+    tagline: "Build the perfect productivity workspace",
+    query: "study setup",
+    totalPrice: 18746,
+    originalTotal: 31296,
+    savings: 12550,
+    products: ["p019", "p020", "p021", "p022", "p023"],
+    productDetails: [
+      { id: "p019", name: "LG 24-inch Monitor", price: 7999 },
+      { id: "p020", name: "Philips LED Study Lamp", price: 1199 },
+      { id: "p021", name: "GreenSoul Ergonomic Chair", price: 8499 },
+      { id: "p022", name: "Amazon Basics Cable Kit", price: 399 },
+      { id: "p023", name: "Logitech M235 Mouse", price: 649 }
+    ]
+  },
+
+  {
+    id: "b003",
+    name: "Hostel Starter Kit",
+    tagline: "Everything needed for your first semester away from home",
+    query: "hostel essentials",
+    totalPrice: 12499,
+    originalTotal: 18999,
+    savings: 6500,
+    products: ["p011", "p012", "p013"],
+    productDetails: [
+      { id: "p011", name: "Electric Kettle", price: 1499 },
+      { id: "p012", name: "Bedsheet Set", price: 999 },
+      { id: "p013", name: "Storage Organizer", price: 1299 }
+    ]
+  },
+
+  {
+    id: "b004",
+    name: "Work From Home Setup",
+    tagline: "Upgrade your productivity and comfort",
+    query: "work from home",
+    totalPrice: 15999,
+    originalTotal: 23999,
+    savings: 8000,
+    products: ["p019", "p021", "p023"],
+    productDetails: [
+      { id: "p019", name: "LG 24-inch Monitor", price: 7999 },
+      { id: "p021", name: "GreenSoul Ergonomic Chair", price: 8499 },
+      { id: "p023", name: "Logitech M235 Mouse", price: 649 }
+    ]
+  },
+
+  {
+    id: "b005",
+    name: "Fitness Journey Bundle",
+    tagline: "Kickstart a healthier lifestyle",
+    query: "fitness bundle",
+    totalPrice: 8999,
+    originalTotal: 12999,
+    savings: 4000,
+    products: ["p030", "p031", "p032"],
+    productDetails: [
+      { id: "p030", name: "Protein Powder", price: 2499 },
+      { id: "p031", name: "Yoga Mat", price: 999 },
+      { id: "p032", name: "Adjustable Dumbbells", price: 5499 }
+    ]
+  },
+
+  {
+    id: "b006",
+    name: "Content Creator Kit",
+    tagline: "Perfect for YouTube, streaming and online classes",
+    query: "creator setup",
+    totalPrice: 22999,
+    originalTotal: 31999,
+    savings: 9000,
+    products: ["p040", "p041", "p042"],
+    productDetails: [
+      { id: "p040", name: "USB Microphone", price: 3999 },
+      { id: "p041", name: "Ring Light", price: 1499 },
+      { id: "p042", name: "1080p Webcam", price: 2999 }
+    ]
+  },
+
+  {
+    id: "b007",
+    name: "Gaming Starter Pack",
+    tagline: "Affordable setup for casual gamers",
+    query: "gaming setup",
+    totalPrice: 27999,
+    originalTotal: 36999,
+    savings: 9000,
+    products: ["p050", "p051", "p052"],
+    productDetails: [
+      { id: "p050", name: "Gaming Keyboard", price: 2499 },
+      { id: "p051", name: "Gaming Mouse", price: 1499 },
+      { id: "p052", name: "Gaming Headset", price: 2999 }
+    ]
   }
 ];
 
