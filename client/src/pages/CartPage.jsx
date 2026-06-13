@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { formatPrice, getTrustColor, API } from "../utils/format.js";
-import StarRating from "../components/StarRating.jsx";
-import { Trash2, RefreshCw, ShoppingBag, Clock } from "lucide-react";
+import { useSustainability } from "../contexts/SustainabilityContext.jsx";
+import { getUserSustainabilityScore, getSustainabilityData, getSustainabilityColor } from "../utils/sustainability.js";
+import { Trash2, RefreshCw, ShoppingBag, Clock, Leaf } from "lucide-react";
 import axios from "axios";
 
 const TABS = ["Cart", "Soon"];
@@ -11,8 +12,14 @@ const TABS = ["Cart", "Soon"];
 export default function CartPage() {
   const { items, addToCart, removeFromCart, updateQty, total, itemCount } = useCart();
   const navigate = useNavigate();
+  const { prefs } = useSustainability();
   const [activeTab, setActiveTab] = useState("Cart");
   const [senseItems, setSenseItems] = useState([]);
+
+  // Cart sustainability score
+  const cartSustainScore = getUserSustainabilityScore(items, prefs);
+  const cartSustainColor = getSustainabilityColor(cartSustainScore);
+  const ecoItemCount = items.filter((item) => getSustainabilityData(item.id).score >= 70).length;
 
   useEffect(() => {
     axios.get(`${API}/api/sense/predictions`)
@@ -25,7 +32,7 @@ export default function CartPage() {
           trustScore: 88,
           urgency: "Due today",
           daysOverdue: 0,
-          thumbnail: "https://m.media-amazon.com/images/I/71Rj8EH9Y+L._AC_SL1500_.jpg"
+          thumbnail: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg"
         }]);
       });
   }, []);
@@ -184,6 +191,34 @@ export default function CartPage() {
                 >
                   Proceed to Buy
                 </button>
+
+                {/* Cart Sustainability Summary (shown when mode is on) */}
+                {prefs.enabled && items.length > 0 && (
+                  <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Leaf size={13} className="text-[#1B5E20]" />
+                      <span className="text-xs font-bold text-[#1B5E20]">Cart Sustainability</span>
+                    </div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-[#565959]">Cart Score</span>
+                      <span className="text-sm font-bold" style={{ color: cartSustainColor.hex }}>
+                        {cartSustainScore}/100
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-green-100 rounded-full overflow-hidden mb-2">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${cartSustainScore}%`, backgroundColor: cartSustainColor.hex }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-[#565959]">
+                      <span>🌱 Eco-friendly items: {ecoItemCount}</span>
+                      <Link to="/sustainability" className="text-[#007185] hover:underline">
+                        Details →
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -304,6 +304,41 @@ router.get("/:id", async (req, res) => {
   res.json({ product });
 });
 
+// Words that carry no product meaning and should be ignored
+const STOP_WORDS = new Set([
+  "the","and","for","best","good","top","buy","get","new","cheap","budget",
+  "india","online","with","price","under","below","above","latest","great",
+  "review","buy","shop","sale","offer","deal","rupees","rs","inr",
+]);
+
+// Score a single product against the search terms
+function scoreProduct(p, terms) {
+  const name = (p.name || "").toLowerCase();
+  const brand = (p.brand || "").toLowerCase();
+  const cat = (p.category || "").toLowerCase();
+  const desc = (p.description || "").toLowerCase();
+
+  let totalScore = 0;
+  let matchCount = 0;
+
+  for (const term of terms) {
+    let termScore = 0;
+    if (name === term)                         termScore = 14;
+    else if (name.startsWith(term + " "))      termScore = 11;
+    else if (name.includes(" " + term + " "))  termScore = 9;
+    else if (name.includes(term))              termScore = 7;
+    else if (brand === term)                   termScore = 6;
+    else if (brand.includes(term))             termScore = 4;
+    else if (cat.includes(term))               termScore = 3;
+    else if (desc.includes(term))              termScore = 1;
+
+    if (termScore > 0) matchCount++;
+    totalScore += termScore;
+  }
+
+  return { score: totalScore, matchCount };
+}
+
 const BUNDLE_DETECTION_PROMPT = `You are a search intent classifier. Given a search query, respond ONLY with valid JSON, no markdown, no explanation:
 { "type": "bundle" | "product", "category": "home theatre" | "audio" | "mobile" | null }
 
@@ -319,6 +354,7 @@ router.post("/search", async (req, res) => {
 
   const q = query.toLowerCase().trim();
 
+  // Bundle detection (hardcoded patterns first, AI fallback if key present)
   const bundleKeywords = ["setup", "combo", "kit", "bundle", "package", "system"];
   const homeTheatreKeywords = ["home theatre", "home theater", "theatre", "theater"];
   const isHomeTheatre = homeTheatreKeywords.some((k) => q.includes(k));
@@ -361,20 +397,30 @@ router.post("/search", async (req, res) => {
     return res.json({ type: "bundle", bundle, products: allProducts, bundleProducts });
   }
 
-  const terms = q.split(" ").filter((t) => t.length > 2);
-  const filtered = allProducts.filter((p) =>
-    terms.some(
-      (t) =>
-        p.name.toLowerCase().includes(t) ||
-        p.brand.toLowerCase().includes(t) ||
-        p.category.toLowerCase().includes(t)
-    )
-  );
+  // Tokenise — keep terms ≥ 1 char, drop stop words
+  const terms = q
+    .split(/\s+/)
+    .map((t) => t.replace(/[₹,]/g, ""))   // strip currency symbols / commas
+    .filter((t) => t.length >= 1 && !STOP_WORDS.has(t));
 
-  res.json({
-    type: "product",
-    products: filtered.length > 0 ? filtered : allProducts.slice(0, 40),
-  });
+  if (terms.length === 0) {
+    return res.json({ type: "product", products: allProducts });
+  }
+
+  // Score every product
+  const scored = allProducts
+    .map((p) => ({ product: p, ...scoreProduct(p, terms) }))
+    .filter(({ matchCount }) => matchCount > 0);
+
+  // Prefer AND results (every term matched); fall back to OR if needed
+  const andMatches = scored.filter(({ matchCount }) => matchCount === terms.length);
+  const results = andMatches.length > 0 ? andMatches : scored;
+
+  // Sort by relevance score descending
+  results.sort((a, b) => b.score - a.score);
+
+  res.json({ type: "product", products: results.map((r) => r.product) });
 });
 
+export { getAllProducts };
 export default router;

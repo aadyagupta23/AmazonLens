@@ -8,7 +8,10 @@ import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
-import SmartSearchPage from './pages/SmartSearchPage';
+import SmartSearchPage from "./pages/SmartSearchPage.jsx";
+import AccountPage from "./pages/AccountPage.jsx";
+import SustainabilityPage from "./pages/SustainabilityPage.jsx";
+import StubPage from "./pages/StubPage.jsx";
 
 export default function App() {
   return (
@@ -24,6 +27,18 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/smart-search" element={<SmartSearchPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/sustainability" element={<SustainabilityPage />} />
+        <Route path="/orders" element={<StubPage />} />
+        <Route path="/prime" element={<StubPage />} />
+        <Route path="/help" element={<StubPage />} />
+        <Route path="/sell" element={<StubPage />} />
+        <Route path="/gift-cards" element={<StubPage />} />
+        <Route path="/registry" element={<StubPage />} />
+        <Route path="/amazon-pay" element={<StubPage />} />
+        <Route path="/minitv" element={<StubPage />} />
+        <Route path="/wishlist" element={<StubPage />} />
+        <Route path="/history" element={<StubPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
