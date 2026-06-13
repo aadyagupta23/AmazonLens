@@ -9,10 +9,6 @@ const CATEGORIES = [
   "Books", "Sports", "Grocery", "Beauty", "Toys"
 ];
 
-const NAV_LINKS = [
-  "Today's Deals", "Customer Service", "Registry", "Gift Cards", "Sell"
-];
-
 export default function Navbar() {
   const navigate = useNavigate();
   const { user, realUser, logout } = useAuth();
@@ -24,8 +20,10 @@ export default function Navbar() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
-    navigate(`/s?q=${encodeURIComponent(query.trim())}`);
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (category !== "All") params.set("category", category);
+    navigate(`/s?${params.toString()}`);
   };
 
   return (
@@ -57,7 +55,6 @@ export default function Navbar() {
 
           {/* Search bar */}
           <form onSubmit={handleSearch} className="flex flex-1 h-10 rounded overflow-hidden">
-            {/* Category selector */}
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -67,7 +64,6 @@ export default function Navbar() {
                 <option key={c}>{c}</option>
               ))}
             </select>
-            {/* Search input */}
             <input
               ref={inputRef}
               type="text"
@@ -76,7 +72,6 @@ export default function Navbar() {
               placeholder="Search Amazon.in"
               className="flex-1 px-3 text-[#131921] text-sm outline-none bg-white"
             />
-            {/* Search button */}
             <button
               type="submit"
               className="bg-[#FF9900] hover:bg-[#F3A847] px-4 flex items-center justify-center"
@@ -98,7 +93,7 @@ export default function Navbar() {
             onMouseLeave={() => setShowAccount(false)}
           >
             <Link
-              to={realUser ? "/" : "/login"}
+              to={realUser ? "/account" : "/login"}
               className="flex flex-col border border-transparent hover:border-white rounded px-1 py-1 min-w-[100px]"
             >
               <span className="text-[#CCC] text-[11px]">Hello, {user?.name?.split(" ")[0] || "Sign in"}</span>
@@ -134,8 +129,21 @@ export default function Navbar() {
                 )}
                 <hr className="my-3 border-gray-200" />
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                  {["Your Account", "Your Orders", "Your Wishlist", "Your Prime", "Your Recommendations", "Browsing History"].map((item) => (
-                    <a key={item} href="#" className="hover:underline text-[#0F1111]">{item}</a>
+                  {[
+                    { label: "Your Account", href: "/account" },
+                    { label: "Your Orders", href: "/orders" },
+                    { label: "Your Wishlist", href: "/wishlist" },
+                    { label: "Your Prime", href: "/prime" },
+                    { label: "Recommendations", href: "/" },
+                    { label: "Browsing History", href: "/history" },
+                  ].map((item) => (
+                    <Link
+                      key={item.label}
+                      to={item.href}
+                      className="hover:underline text-[#0F1111]"
+                    >
+                      {item.label}
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -144,7 +152,7 @@ export default function Navbar() {
 
           {/* Returns & Orders */}
           <Link
-            to="/"
+            to="/orders"
             className="hidden md:flex flex-col border border-transparent hover:border-white rounded px-1 py-1 flex-shrink-0"
           >
             <span className="text-[#CCC] text-[11px]">Returns</span>
@@ -172,27 +180,42 @@ export default function Navbar() {
       {/* Secondary navigation bar */}
       <div className="bg-[#232F3E] text-white">
         <div className="max-w-[1500px] mx-auto px-3 flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
-          <button className="flex items-center gap-1 px-2 py-2 hover:bg-white/10 rounded text-sm font-medium flex-shrink-0">
+          <button
+            onClick={() => navigate("/s")}
+            className="flex items-center gap-1 px-2 py-2 hover:bg-white/10 rounded text-sm font-medium flex-shrink-0"
+          >
             <Menu size={16} />
             <span>All</span>
           </button>
-          {NAV_LINKS.map((link) => (
-            <button key={link} className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
-              {link}
-            </button>
+
+          {[
+            { label: "Today's Deals", href: "/s?q=deals" },
+            { label: "Customer Service", href: "/help" },
+            { label: "Registry", href: "/registry" },
+            { label: "Gift Cards", href: "/gift-cards" },
+            { label: "Sell", href: "/sell" },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              to={item.href}
+              className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0"
+            >
+              {item.label}
+            </Link>
           ))}
-          <button className="px-3 py-2 hover:bg-white/10 rounded text-sm text-[#FF9900] font-medium flex-shrink-0">
+
+          <Link to="/prime" className="px-3 py-2 hover:bg-white/10 rounded text-sm text-[#FF9900] font-medium flex-shrink-0">
             Prime
-          </button>
-          <button className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
+          </Link>
+          <Link to="/amazon-pay" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
             Amazon Pay
-          </button>
-          <button className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
+          </Link>
+          <Link to="/cart" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
             Buy Again
-          </button>
-          <button className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
+          </Link>
+          <Link to="/minitv" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
             Amazon miniTV
-          </button>
+          </Link>
         </div>
       </div>
     </header>
