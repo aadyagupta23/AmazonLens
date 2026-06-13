@@ -286,20 +286,24 @@ const SETUP_REQUIREMENTS = {
   },
 };
 
-// ─── Groq client ─────────────────────────────────────────────────────────────
+// ─── Groq client (lazy — dotenv runs after module imports in ESM) ─────────────
 let groq = null;
-try {
-  if (process.env.GROQ_API_KEY) {
-    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  }
-} catch (_) {}
+function getGroq() {
+  if (groq) return groq;
+  try {
+    if (process.env.GROQ_API_KEY) {
+      groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    }
+  } catch (_) {}
+  return groq;
+}
 
 // ─── AI Query Parser ─────────────────────────────────────────────────────────
 async function parseQueryWithAI(query) {
-  if (!groq) return null;
+  if (!getGroq()) return null;
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama3-70b-8192',
+    const completion = await getGroq().chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 256,
       messages: [
         {
