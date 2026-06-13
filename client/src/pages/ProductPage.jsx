@@ -90,9 +90,13 @@ export default function ProductPage() {
           <span>›</span>
           {product.category.split(" > ").map((crumb, i, arr) => (
             <React.Fragment key={crumb}>
-              <span className={i === arr.length - 1 ? "text-[#0F1111]" : "text-[#007185] hover:underline cursor-pointer"}>
-                {crumb}
-              </span>
+              {i === arr.length - 1 ? (
+                <span className="text-[#0F1111]">{crumb}</span>
+              ) : (
+                <Link to={`/s?category=${encodeURIComponent(crumb)}`} className="text-[#007185] hover:underline">
+                  {crumb}
+                </Link>
+              )}
               {i < arr.length - 1 && <span>›</span>}
             </React.Fragment>
           ))}

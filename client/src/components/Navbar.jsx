@@ -5,8 +5,8 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
 
 const CATEGORIES = [
-  "All", "Electronics", "Mobiles", "Fashion", "Home & Kitchen",
-  "Books", "Sports", "Grocery", "Beauty", "Toys"
+  "All", "Electronics", "Fashion", "Home & Kitchen",
+  "Books", "Sports", "Grocery", "Beauty"
 ];
 
 export default function Navbar() {
@@ -58,7 +58,7 @@ export default function Navbar() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="bg-[#F3F3F3] text-[#131921] text-xs px-2 border-r border-gray-300 cursor-pointer hidden sm:block min-w-[80px] max-w-[120px]"
+              className="h-full bg-[#F3F3F3] text-[#131921] text-xs px-2 border-r border-gray-300 cursor-pointer hidden sm:block min-w-[80px] max-w-[120px]"
             >
               {CATEGORIES.map((c) => (
                 <option key={c}>{c}</option>
