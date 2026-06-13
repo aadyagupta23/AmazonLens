@@ -1,6 +1,9 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
 import { products, bundles } from "../data/mockData.js";
+import { generateReviews } from "../data/reviewGenerator.js";
+import { computeProductScore } from "../utils/trustFormula.js";
+import { getProductReviews, getProductStats } from "../data/customers.js";
 
 const router = Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -57,7 +60,11 @@ function mapDJProduct(p) {
   const priceINR = Math.round(p.price * 83);
   const disc = Math.min(80, Math.round(p.discountPercentage));
   const originalINR = Math.round(priceINR / Math.max(0.25, 1 - disc / 100));
-  const trust = Math.max(22, Math.min(96, Math.round(42 + p.rating * 10 + sr(id, 1) * 15)));
+  // ~12% of DummyJSON products are from suspicious/low-trust sellers
+  const isSuspiciousSeller = sr(id, 22) > 0.88;
+  const trust = isSuspiciousSeller
+    ? Math.max(22, Math.min(52, Math.round(18 + p.rating * 5 + sr(id, 1) * 10)))
+    : Math.max(55, Math.min(96, Math.round(50 + p.rating * 8 + sr(id, 1) * 12)));
   const isFakeDisc = disc > 45 && sr(id, 2) > 0.5;
 
   const priceHistory = Array.from({ length: 12 }, (_, i) => {
@@ -100,9 +107,13 @@ function mapDJProduct(p) {
     witnesses: [],
     reviews: [],
     soldBy: p.brand || "Third-party Seller",
-    soldByRating: parseFloat((3.4 + sr(id, 7) * 1.6).toFixed(1)),
-    sellerSince: String(2010 + Math.floor(sr(id, 8) * 14)),
-    fulfillment: sr(id, 9) > 0.4 ? "Fulfilled by Amazon" : "Seller fulfilled",
+    soldByRating: isSuspiciousSeller
+      ? parseFloat((2.0 + sr(id, 7) * 0.9).toFixed(1))
+      : parseFloat((3.8 + sr(id, 7) * 1.2).toFixed(1)),
+    sellerSince: isSuspiciousSeller
+      ? String(2021 + Math.floor(sr(id, 8) * 4))
+      : String(2010 + Math.floor(sr(id, 8) * 12)),
+    fulfillment: isSuspiciousSeller ? "Seller fulfilled" : (sr(id, 9) > 0.4 ? "Fulfilled by Amazon" : "Seller fulfilled"),
     trustBreakdown: {
       reviewAuthenticity: { score: Math.max(14, Math.min(96, trust + Math.round((sr(id, 11) - 0.5) * 28))), detail: null },
       returnRate:         { score: Math.max(14, Math.min(96, trust + Math.round((sr(id, 12) - 0.5) * 22))), detail: null },
@@ -280,11 +291,36 @@ async function getBookProducts() {
 getDJProducts();
 getBookProducts();
 
-// ── Helper: all products combined ─────────────────────────────────────────
+// ── Helper: all products combined (cached with computed trust scores) ─────
+
+let allProductsCache = null;
+
+export function invalidateProductCache() {
+  allProductsCache = null;
+}
 
 async function getAllProducts() {
+  if (allProductsCache) return allProductsCache;
+
   const [dj, books] = await Promise.all([getDJProducts(), getBookProducts()]);
-  return [...products, ...dj, ...books];
+  const base = [...products, ...dj, ...books].map((p) => ({
+    ...p,
+    reviews: generateReviews(p, 10),
+  }));
+
+  // Score every product independently using its own return/reorder rates.
+  // DummyJSON/book products with no customer data use getProductStats defaults (10% return, 20% reorder).
+  allProductsCache = base.map((product) => {
+    const stats  = getProductStats(product.id);
+    const realRg = stats.returnRate;
+    const realRi = Math.min(1, stats.reorderRate / 0.45);
+    const { productScore, status: productStatus } = computeProductScore(product, 0, { Rg: realRg, Ri: realRi });
+    const { total: dbReviewCount } = getProductReviews(product.id, 1, 1);
+    return { ...product, productScore, productStatus, reviewCount: dbReviewCount || product.reviewCount };
+  });
+
+  console.log(`Trust scores computed for ${allProductsCache.length} products`);
+  return allProductsCache;
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────

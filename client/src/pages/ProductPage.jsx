@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API, formatPrice, getTrustColor } from "../utils/format.js";
+import { API, formatPrice } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useWishlist } from "../contexts/WishlistContext.jsx";
+import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { getSustainabilityData } from "../utils/sustainability.js";
 import StarRating from "../components/StarRating.jsx";
-import TrustScore from "../components/TrustLens/TrustScore.jsx";
-import PriceHistory from "../components/TrustLens/PriceHistory.jsx";
-import FakeDiscountAlert from "../components/TrustLens/FakeDiscountAlert.jsx";
-import BuyWaitBox from "../components/TrustLens/BuyWaitBox.jsx";
+import TrustPanel from "../components/TrustLens/TrustPanel.jsx";
+import UserTrustVote from "../components/TrustLens/UserTrustVote.jsx";
+import MockReturn from "../components/TrustLens/MockReturn.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
+import PriceDropPrediction from "../components/TrustLens/PriceDropPrediction.jsx";
 import WitnessPanel from "../components/WitnessPanel/WitnessPanel.jsx";
 import SustainabilityPanel from "../components/Sustainability/SustainabilityPanel.jsx";
 import SustainabilityBadge from "../components/Sustainability/SustainabilityBadge.jsx";
-import { Shield, Check, Truck, RotateCcw, ChevronRight, ChevronLeft, Share2, Heart } from "lucide-react";
+import { Check, Truck, RotateCcw, Share2, Heart, Shield, Star, Users as UsersIcon } from "lucide-react";
 
 const QTY_OPTIONS = [1, 2, 3, 4, 5];
 
@@ -22,6 +24,8 @@ export default function ProductPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { toggle: toggleWishlist, isInWishlist } = useWishlist();
+  const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
 
   const [product, setProduct] = useState(null);
@@ -29,8 +33,48 @@ export default function ProductPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [trustExpanded, setTrustExpanded] = useState(true);
+  const [trustData, setTrustData] = useState(null);
+  const [trustAnalyzing, setTrustAnalyzing] = useState(false);
+  const [userReturnCount, setUserReturnCount] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
+  const [dbReviews, setDbReviews] = useState([]);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ name: "", email: "", password: "", rating: 0, hoverRating: 0, title: "", body: "" });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+
+  const fetchReviews = async (pid, page = 1) => {
+    setReviewsLoading(true);
+    try {
+      const { data } = await axios.get(`${API}/api/customers/reviews/${pid}?page=${page}&limit=10`);
+      if (page === 1) setDbReviews(data.reviews);
+      else setDbReviews((prev) => [...prev, ...data.reviews]);
+      setReviewsTotal(data.total);
+      setReviewsPage(page);
+    } catch (err) {
+      console.warn("Reviews fetch failed:", err?.message);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const fetchSellerTrust = async (pid, returns = 0) => {
+    setTrustAnalyzing(true);
+    try {
+      const { data: res } = await axios.post(`${API}/api/sense/seller-trust`, {
+        productId: pid,
+        userReturns: returns,
+      });
+      setTrustData(res);
+    } catch (err) {
+      console.warn("TrustLens seller-trust failed:", err?.message || err);
+    } finally {
+      setTrustAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -40,23 +84,11 @@ export default function ProductPage() {
         setProduct(data.product);
         setSelectedImage(0);
 
-        // Request TrustLens analysis for this product (demo heuristic analyzer)
-        (async () => {
-          try {
-            const { data: analysisRes } = await axios.post(`${API}/api/sense/analyze`, { productId: data.product.id });
-            if (analysisRes?.analysis) {
-              setProduct((prev) => ({
-                ...prev,
-                // Only override trustScore for products without hand-crafted data (no trustBreakdown)
-                trustScore: prev.trustBreakdown ? prev.trustScore : analysisRes.analysis.trustScore,
-                trustReasons: analysisRes.analysis.reasons || []
-              }));
-            }
-          } catch (err) {
-            // ignore analysis errors; keep existing product trustScore
-            console.warn("TrustLens analyze failed:", err?.message || err);
-          }
-        })();
+        const pid = data.product.id;
+        const savedReturns = JSON.parse(localStorage.getItem(`returns_${pid}`) || "[]");
+        setUserReturnCount(savedReturns.length);
+        fetchSellerTrust(pid, savedReturns.length);
+        fetchReviews(pid, 1);
       })
       .catch(() => navigate("/"))
       .finally(() => setLoading(false));
@@ -73,6 +105,33 @@ export default function ProductPage() {
     navigate("/cart");
   };
 
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (reviewForm.rating === 0) { setReviewError("Please select a star rating."); return; }
+    setReviewSubmitting(true);
+    setReviewError("");
+    try {
+      const { data: newReview } = await axios.post(`${API}/api/customers/reviews`, {
+        name: reviewForm.name,
+        email: reviewForm.email,
+        password: reviewForm.password,
+        productId,
+        seller: product?.soldBy,
+        rating: reviewForm.rating,
+        title: reviewForm.title,
+        body: reviewForm.body,
+      });
+      setDbReviews((prev) => [newReview, ...prev]);
+      setReviewsTotal((t) => t + 1);
+      setReviewSuccess(true);
+      setReviewForm({ name: "", email: "", password: "", rating: 0, hoverRating: 0, title: "", body: "" });
+    } catch (err) {
+      setReviewError(err?.response?.data?.message || "Failed to submit review. Please try again.");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-[1500px] mx-auto px-4 py-8 flex items-center justify-center min-h-[60vh]">
@@ -83,7 +142,6 @@ export default function ProductPage() {
 
   if (!product) return null;
 
-  const trust = getTrustColor(product.trustScore);
   const nonSuspicious = (product.reviews || []).filter((r) => !r.suspicious);
   const sustainData = getSustainabilityData(product.id);
 
@@ -111,7 +169,6 @@ export default function ProductPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr_280px] gap-6">
           {/* LEFT: Images */}
           <div className="lg:sticky lg:top-20 self-start">
-            {/* Main image */}
             <div className="border border-gray-200 rounded-lg bg-white flex items-center justify-center overflow-hidden mb-3" style={{ minHeight: 360, maxHeight: 400 }}>
               <img
                 src={product.images?.[selectedImage] || product.thumbnail}
@@ -121,7 +178,6 @@ export default function ProductPage() {
               />
             </div>
 
-            {/* Thumbnail strip */}
             {product.images?.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {product.images.map((img, i) => (
@@ -138,33 +194,37 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Action buttons */}
             <div className="flex gap-2 mt-3">
               <button className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] hover:underline">
                 <Share2 size={13} /> Share
               </button>
-              <button className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] hover:underline">
-                <Heart size={13} /> Wishlist
+              <button
+                onClick={() => product && toggleWishlist(product)}
+                className="flex items-center gap-1.5 text-xs hover:underline"
+                style={{ color: product && isInWishlist(product.id) ? "#CC0C39" : "#007185" }}
+              >
+                <Heart
+                  size={13}
+                  className={product && isInWishlist(product.id) ? "fill-[#CC0C39] text-[#CC0C39]" : ""}
+                />
+                {product && isInWishlist(product.id) ? "Wishlisted" : "Wishlist"}
               </button>
             </div>
           </div>
 
           {/* MIDDLE: Product details */}
           <div className="min-w-0">
-            {/* Brand */}
             <Link to={`/s?q=${product.brand}`} className="text-xs text-[#007185] hover:underline hover:text-[#C7511F]">
               Visit the {product.brand} Store
             </Link>
 
-            {/* Title */}
             <h1 className="text-xl font-medium text-[#0F1111] mt-1 leading-snug">{product.name}</h1>
 
-            {/* Ratings */}
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              <StarRating rating={product.rating} count={product.reviewCount} size="md" />
+              <StarRating rating={product.rating} count={reviewsTotal || product.reviewCount} size="md" />
               <span className="text-xs text-[#565959]">|</span>
               <a href="#reviews" className="text-xs text-[#007185] hover:underline">
-                {product.reviewCount.toLocaleString("en-IN")} ratings
+                {(reviewsTotal || product.reviewCount).toLocaleString("en-IN")} ratings
               </a>
               <span className="text-xs text-[#565959]">|</span>
               <span className="text-xs text-[#C7511F]">Search this page</span>
@@ -172,72 +232,42 @@ export default function ProductPage() {
 
             <hr className="my-3 border-gray-200" />
 
-            {/* ── TRUSTLENS PANEL ── */}
-            <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 border border-gray-200 rounded-xl p-4 mb-4">
-              {/* TrustLens header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Shield size={16} className="text-[#131921]" />
-                  <span className="font-bold text-[#0F1111] text-sm">TrustLens™</span>
-                  <span className="text-[10px] bg-[#131921] text-white px-2 py-0.5 rounded-full font-bold">BETA</span>
+            {/* TrustLens Panel */}
+            <div className="mb-4">
+              <TrustPanel
+                data={trustData}
+                loading={trustAnalyzing}
+                sellerName={trustData?.sellerName}
+              />
+              {!trustAnalyzing && trustData && (
+                <div className="mt-1 bg-white border border-gray-200 rounded-2xl px-4 py-1 shadow-sm">
+                  <UserTrustVote productId={productId} />
+                  <MockReturn
+                    productId={productId}
+                    productName={product.name}
+                    onReturnFiled={(count) => {
+                      setUserReturnCount(count);
+                      fetchSellerTrust(productId, count);
+                    }}
+                  />
                 </div>
-                <button
-                  onClick={() => setTrustExpanded(!trustExpanded)}
-                  className="text-xs text-[#007185] hover:underline"
-                >
-                  {trustExpanded ? "Collapse" : "Expand"}
-                </button>
-              </div>
-
-              {/* Trust score always visible */}
-              <TrustScore score={product.trustScore} size="lg" product={product} />
-
-              {trustExpanded && (
-                <div className="mt-4 space-y-4">
-                  {/* TrustLens analysis reasons (from backend) */}
-                  {product.trustReasons && product.trustReasons.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <div className="text-xs text-[#565959] font-medium mb-2">Why this score?</div>
-                      <ul className="list-disc list-inside text-xs text-[#0F1111] space-y-1">
-                        {product.trustReasons.map((r, i) => (
-                          <li key={i}>{r}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {/* Fake discount alert */}
-                  {product.isFakeDiscount && (
-                    <FakeDiscountAlert note={product.fakeDiscountNote} />
-                  )}
-
-                  {/* Buy/Wait recommendation */}
-                  <BuyWaitBox buyNowOrWait={product.buyNowOrWait} waitReason={product.waitReason} />
-
-                  {/* Price history graph */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <PriceHistory
-                      priceHistory={product.priceHistory}
-                      currentPrice={product.price}
-                      spikePriceMonths={product.spikePriceMonths}
-                    />
-                  </div>
-
-                  {/* Suspicious reviews */}
+              )}
+              {!trustAnalyzing && (product.reviews || []).some((r) => r.suspicious) && (
+                <div className="mt-2">
                   <SuspiciousReviews reviews={product.reviews || []} />
                 </div>
               )}
             </div>
 
-            {/* ── SUSTAINABILITY PANEL (visible when Sustainability Mode is on) ── */}
             {showOnProduct && <SustainabilityPanel data={sustainData} />}
 
-            {/* ── PRICING ── */}
+            {/* Pricing */}
             <div className="mb-4">
               <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-sm text-[#565959]">M.R.P.:</span>
                 <span className="text-[#565959] text-sm line-through">{formatPrice(product.originalPrice)}</span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded ${trust.bg} ${trust.text}`}>
-                  -{product.discount}% (TrustLens verified)
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#CC0C39] text-white">
+                  -{product.discount}%
                 </span>
               </div>
               <div className="flex items-baseline gap-1 mt-1">
@@ -257,12 +287,10 @@ export default function ProductPage() {
               )}
             </div>
 
-            {/* ── DESCRIPTION ── */}
             <div className="mb-4">
               <p className="text-sm text-[#0F1111] leading-relaxed">{product.description}</p>
             </div>
 
-            {/* ── FEATURES ── */}
             {product.features?.length > 0 && (
               <div className="mb-4">
                 <h3 className="font-bold text-[#0F1111] text-sm mb-2">About this item</h3>
@@ -277,7 +305,6 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* ── SPECIFICATIONS ── */}
             {product.specs && (
               <div className="mb-6">
                 <h3 className="font-bold text-[#0F1111] text-sm mb-2">Technical Details</h3>
@@ -294,18 +321,14 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* ── WITNESS PANEL ── */}
             {product.witnesses?.length > 0 && (
               <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-gray-50 to-white mb-6">
                 <WitnessPanel witnesses={product.witnesses} product={product} />
               </div>
             )}
 
-            {/* ── CUSTOMER REVIEWS ── */}
             <div id="reviews" className="mb-6">
               <h2 className="font-bold text-[#0F1111] text-base mb-4">Customer Reviews</h2>
-
-              {/* Rating breakdown */}
               <div className="flex items-start gap-6 mb-4 flex-wrap">
                 <div className="text-center">
                   <div className="text-5xl font-bold text-[#0F1111]">{product.rating}</div>
@@ -328,15 +351,16 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Review list */}
+              {/* Review list — from customer database */}
               <div className="space-y-4">
-                {nonSuspicious.map((review) => (
-                  <div key={review.id} className="border-b border-gray-100 pb-4">
+                {dbReviews.map((review, i) => (
+                  <div key={`${review.customerId}-${i}`} className="border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-7 h-7 rounded-full bg-[#EAEDED] flex items-center justify-center text-xs font-bold text-[#565959]">
                         {review.author[0].toUpperCase()}
                       </div>
                       <span className="text-sm font-medium text-[#0F1111]">{review.author}</span>
+                      <span className="text-xs text-[#565959]">{review.city}</span>
                       {review.verified && (
                         <span className="text-xs text-[#C7511F]">Verified Purchase</span>
                       )}
@@ -347,9 +371,137 @@ export default function ProductPage() {
                     </div>
                     <p className="text-xs text-[#565959] mb-1">Reviewed in India on {review.date}</p>
                     <p className="text-sm text-[#0F1111]">{review.body}</p>
-                    <p className="text-xs text-[#565959] mt-2">{review.helpful} people found this helpful</p>
                   </div>
                 ))}
+                {reviewsLoading && (
+                  <div className="flex justify-center py-4">
+                    <div className="w-5 h-5 border-2 border-[#FF9900] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {!reviewsLoading && dbReviews.length < reviewsTotal && (
+                  <button
+                    onClick={() => fetchReviews(productId, reviewsPage + 1)}
+                    className="text-sm text-[#007185] hover:underline mt-2"
+                  >
+                    Load more reviews ({reviewsTotal - dbReviews.length} remaining)
+                  </button>
+                )}
+                {!reviewsLoading && dbReviews.length === 0 && (
+                  <p className="text-sm text-[#565959]">No reviews yet. Be the first to review this product!</p>
+                )}
+              </div>
+
+              {/* ── WRITE A REVIEW ── */}
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h3 className="font-bold text-[#0F1111] text-sm mb-4">Write a customer review</h3>
+                {reviewSuccess ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+                    Thank you! Your review has been submitted successfully.
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmitReview} className="space-y-4">
+                    {/* Star rating picker */}
+                    <div>
+                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Overall rating</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setReviewForm((f) => ({ ...f, rating: s }))}
+                            onMouseEnter={() => setReviewForm((f) => ({ ...f, hoverRating: s }))}
+                            onMouseLeave={() => setReviewForm((f) => ({ ...f, hoverRating: 0 }))}
+                            className="p-0.5"
+                          >
+                            <Star
+                              size={24}
+                              className={
+                                s <= (reviewForm.hoverRating || reviewForm.rating)
+                                  ? "text-[#FF9900] fill-[#FF9900]"
+                                  : "text-gray-300"
+                              }
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Title + Body */}
+                    <div>
+                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Review headline</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="What's most important to know?"
+                        value={reviewForm.title}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, title: e.target.value }))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Your review</label>
+                      <textarea
+                        required
+                        rows={4}
+                        placeholder="What did you like or dislike? What did you use this product for?"
+                        value={reviewForm.body}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, body: e.target.value }))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900] resize-none"
+                      />
+                    </div>
+
+                    <hr className="border-gray-200" />
+                    <p className="text-xs text-[#565959]">Sign in or create an account to save your review</p>
+
+                    {/* Name + Email + Password */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-[#0F1111] block mb-1">Full name</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Your name"
+                          value={reviewForm.name}
+                          onChange={(e) => setReviewForm((f) => ({ ...f, name: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-[#0F1111] block mb-1">Email address</label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="you@email.com"
+                          value={reviewForm.email}
+                          onChange={(e) => setReviewForm((f) => ({ ...f, email: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-[#0F1111] block mb-1">Password</label>
+                        <input
+                          type="password"
+                          placeholder="Create a password"
+                          value={reviewForm.password}
+                          onChange={(e) => setReviewForm((f) => ({ ...f, password: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
+                        />
+                      </div>
+                    </div>
+
+                    {reviewError && (
+                      <p className="text-xs text-red-600">{reviewError}</p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={reviewSubmitting}
+                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-bold px-6 py-2 rounded-full disabled:opacity-50"
+                    >
+                      {reviewSubmitting ? "Submitting…" : "Submit review"}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>
@@ -357,13 +509,11 @@ export default function ProductPage() {
           {/* RIGHT: Buy box */}
           <div className="lg:sticky lg:top-20 self-start">
             <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm">
-              {/* Price */}
               <div className="text-2xl font-medium text-[#0F1111] mb-1">
                 <span className="text-base">₹</span>
                 {product.price.toLocaleString("en-IN")}
               </div>
 
-              {/* Prime delivery */}
               {product.isPrime && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1 text-xs">
@@ -374,17 +524,14 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Delivery location */}
               <div className="text-xs text-[#0F1111] mb-3">
                 Deliver to <span className="text-[#007185] font-medium cursor-pointer hover:underline">Bengaluru 560001</span>
               </div>
 
-              {/* Stock */}
               <div className="text-base text-[#007600] font-medium mb-3">
                 {product.inStock ? "In Stock" : "Out of Stock"}
               </div>
 
-              {/* Quantity */}
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-sm text-[#0F1111]">Qty:</span>
                 <select
@@ -396,7 +543,6 @@ export default function ProductPage() {
                 </select>
               </div>
 
-              {/* CTA buttons */}
               <div className="flex flex-col gap-2">
                 <button
                   onClick={handleAddToCart}
@@ -418,11 +564,18 @@ export default function ProductPage() {
                 >
                   Buy Now
                 </button>
+                {coPlannerPlans.length > 0 && (
+                  <button
+                    onClick={() => startAddToPlan(product)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-full text-sm font-medium border border-gray-300 text-[#0F1111] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
+                  >
+                    <UsersIcon size={14} /> Add to Co-Plan
+                  </button>
+                )}
               </div>
 
               <hr className="my-4 border-gray-200" />
 
-              {/* Seller info */}
               <div className="text-xs space-y-1.5">
                 <div className="flex justify-between">
                   <span className="text-[#565959]">Sold by</span>
@@ -444,7 +597,6 @@ export default function ProductPage() {
 
               <hr className="my-4 border-gray-200" />
 
-              {/* Trust badges */}
               <div className="space-y-2.5 text-xs text-[#0F1111]">
                 <div className="flex items-center gap-2">
                   <Shield size={14} className="text-[#565959]" />
@@ -461,22 +613,31 @@ export default function ProductPage() {
               </div>
 
               {/* TrustLens mini-badge in buy box */}
-              <div className={`mt-4 ${trust.bg} rounded-lg px-3 py-2`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-white text-xs font-bold">TrustLens Score</div>
-                    <div className="text-white/80 text-[10px]">{trust.label}</div>
+              {(() => {
+                const statusBg = !trustData ? "#FF9900"
+                  : trustData.status === "VERIFIED" ? "#16a34a"
+                  : trustData.status === "MIXED" ? "#ea580c"
+                  : "#dc2626";
+                return (
+                  <div
+                    className="mt-4 rounded-lg px-3 py-2 transition-colors duration-700"
+                    style={{ backgroundColor: statusBg }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-white text-xs font-bold">TrustLens™</div>
+                        <div className="text-white/80 text-[10px]">
+                          {trustAnalyzing ? "Analyzing…" : (trustData?.status || "—")}
+                        </div>
+                      </div>
+                      <div className="text-white text-2xl font-bold">
+                        {trustAnalyzing ? "…" : (trustData ? `${trustData.productScore}` : "—")}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-white text-2xl font-bold">{product.trustScore}</div>
-                </div>
-                {product.buyNowOrWait === "wait" && (
-                  <div className="text-white/90 text-[10px] mt-1 border-t border-white/20 pt-1">
-                    ⏳ {product.waitReason}
-                  </div>
-                )}
-              </div>
+                );
+              })()}
 
-              {/* Sustainability mini-badge in buy box (only when mode is on) */}
               {showOnProduct && (
                 <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                   <div className="flex items-center justify-between">

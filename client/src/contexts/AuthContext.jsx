@@ -1,54 +1,63 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
-import { API } from "../utils/format.js";
 
 const AuthContext = createContext(null);
 
+const USERS_KEY = "al_users";
+const SESSION_KEY = "al_session";
+
+function loadUsers() {
+  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; }
+}
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("al_token");
-    const storedUser = localStorage.getItem("al_user");
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
+    const session = loadSession();
+    if (session) setUser(session);
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-    const { data } = await axios.post(`${API}/api/auth/login`, { email, password });
-    setToken(data.token);
-    setUser(data.user);
-    localStorage.setItem("al_token", data.token);
-    localStorage.setItem("al_user", JSON.stringify(data.user));
-    return data;
+    const users = loadUsers();
+    const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (!found) throw { response: { data: { message: "No account found with this email." } } };
+    if (found.password !== password) throw { response: { data: { message: "Incorrect password." } } };
+    const sessionUser = { id: found.id, name: found.name, email: found.email };
+    setUser(sessionUser);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+    return { user: sessionUser };
   };
 
   const signup = async (name, email, password) => {
-    const { data } = await axios.post(`${API}/api/auth/signup`, { name, email, password });
-    setToken(data.token);
-    setUser(data.user);
-    localStorage.setItem("al_token", data.token);
-    localStorage.setItem("al_user", JSON.stringify(data.user));
-    return data;
+    const users = loadUsers();
+    if (users.find((u) => u.email.toLowerCase() === email.toLowerCase())) {
+      throw { response: { data: { message: "An account with this email already exists." } } };
+    }
+    const newUser = { id: `u_${Date.now()}`, name, email: email.toLowerCase(), password };
+    saveUsers([...users, newUser]);
+    const sessionUser = { id: newUser.id, name: newUser.name, email: newUser.email };
+    setUser(sessionUser);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+    return { user: sessionUser };
   };
 
   const logout = () => {
-    setToken(null);
     setUser(null);
-    localStorage.removeItem("al_token");
-    localStorage.removeItem("al_user");
+    localStorage.removeItem(SESSION_KEY);
   };
 
-  // Demo mode: if no real user, use a mock user for seamless demo
   const effectiveUser = user || { name: "Arjun Kumar", email: "arjun@example.com" };
 
   return (
-    <AuthContext.Provider value={{ user: effectiveUser, realUser: user, token, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user: effectiveUser, realUser: user, token: null, login, signup, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

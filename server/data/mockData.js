@@ -246,7 +246,63 @@ export const products = [
       "OS": "iOS 17"
     },
     witnesses: [],
-    reviews: [],
+    reviews: [
+      {
+        id: "r301",
+        author: "aarav_shah_blr",
+        rating: 5,
+        title: "Best iPhone I've owned — camera is exceptional",
+        body: "Upgraded from iPhone 11 and the difference is night and day. Camera captures stunning detail even in low light. Dynamic Island is genuinely useful for navigation and music. Battery comfortably lasts a full day.",
+        date: "2024-10-05",
+        helpful: 312,
+        verified: true,
+        suspicious: false
+      },
+      {
+        id: "r302",
+        author: "nandita_rao_mum",
+        rating: 4,
+        title: "Great phone, USB-C upgrade was long overdue",
+        body: "Build quality and performance are as expected from Apple. The switch to USB-C is very welcome — finally one cable for everything. Only gripe is 128GB fills up fast with ProRes video. Worth every rupee.",
+        date: "2024-09-18",
+        helpful: 198,
+        verified: true,
+        suspicious: false
+      },
+      {
+        id: "r303",
+        author: "karthik_v_chn",
+        rating: 5,
+        title: "Absolutely stunning — coming from Android",
+        body: "The transition from Android was seamless. The camera is head and shoulders above what I was using before. iMessage, FaceTime, and ecosystem integration are excellent. Very satisfied with the purchase.",
+        date: "2024-11-02",
+        helpful: 156,
+        verified: true,
+        suspicious: false
+      },
+      {
+        id: "r304",
+        author: "meera_pillai_kochi",
+        rating: 4,
+        title: "Solid upgrade, typical Apple quality and polish",
+        body: "Exactly what you expect from Apple — premium build, smooth performance, excellent camera system. iOS 17 is very polished. No quality issues whatsoever after 6 months of heavy daily use.",
+        date: "2024-10-28",
+        helpful: 89,
+        verified: true,
+        suspicious: false
+      },
+      {
+        id: "r305",
+        author: "rohit_menon_del",
+        rating: 5,
+        title: "The Dynamic Island grows on you",
+        body: "Initially skeptical about the notch replacement but Dynamic Island is clever and well implemented. Performance is snappy even with 20+ apps open. Camera quality in this price range is unmatched.",
+        date: "2024-11-15",
+        helpful: 74,
+        verified: true,
+        suspicious: false
+      }
+    ],
     soldBy: "Appario Retail Pvt Ltd",
     soldByRating: 4.8,
     sellerSince: "2014",
@@ -297,7 +353,65 @@ export const products = [
       "Charging": "USB-C, 1.5H"
     },
     witnesses: [],
-    reviews: [],
+    reviews: [
+      {
+        id: "r401",
+        author: "buyer_9821",
+        rating: 5,
+        title: "AMAZING EARBUDS BEST BUY DON'T MISS",
+        body: "AMAZING PRODUCT SUPERB QUALITY BEST EARBUDS BEST PRICE BUY NOW DON'T MISS BEST IN CLASS TOP QUALITY",
+        date: "2024-11-08",
+        helpful: 0,
+        verified: false,
+        suspicious: true,
+        suspiciousReason: "All-caps repetitive phrasing, 0-day account, posted within 2h of 3 other identical-pattern reviews — bot burst detected"
+      },
+      {
+        id: "r402",
+        author: "buyer_9822",
+        rating: 5,
+        title: "SUPERB QUALITY MUST BUY TODAY",
+        body: "SUPERB QUALITY MUST BUY GREAT EARBUDS BEST IN CLASS DONT MISS THIS OFFER BEST PRICE SUPERB SOUND",
+        date: "2024-11-08",
+        helpful: 0,
+        verified: false,
+        suspicious: true,
+        suspiciousReason: "Coordinated burst — same posting window as r401 from a new account with zero purchase history"
+      },
+      {
+        id: "r403",
+        author: "rakesh_m_del",
+        rating: 2,
+        title: "Left earbud stopped working after 2 weeks",
+        body: "The left earbud stopped working completely after just 2 weeks. Tried to claim warranty but the process was a nightmare — took over 3 weeks to get a replacement. Poor quality control for a mass-market product.",
+        date: "2024-09-15",
+        helpful: 45,
+        verified: true,
+        suspicious: false
+      },
+      {
+        id: "r404",
+        author: "priya_s_hyd",
+        rating: 3,
+        title: "Average build — had to replace within a month",
+        body: "Sound is decent for the price but the build is flimsy. Had to replace them once already through warranty. The entire warranty process took 3 weeks. Not sure I'd buy again at even this price.",
+        date: "2024-10-20",
+        helpful: 32,
+        verified: true,
+        suspicious: false
+      },
+      {
+        id: "r405",
+        author: "vijay_k_pune",
+        rating: 1,
+        title: "Dead on arrival — right earbud defective",
+        body: "Product was defective right out of the box. Right earbud was completely dead on arrival. Amazon replaced it but the replacement unit also developed a malfunction after 3 weeks. Avoid this product.",
+        date: "2024-08-10",
+        helpful: 67,
+        verified: true,
+        suspicious: false
+      }
+    ],
     soldBy: "boAt Official Store",
     soldByRating: 3.9,
     sellerSince: "2022",
@@ -630,7 +744,7 @@ export const products = [
     isPrime: true,
     delivery: "Get it by Tomorrow",
     deliveryFree: true,
-    trustScore: 65,
+    trustScore: 50,
     trustLabel: "Mixed",
     isFakeDiscount: true,
     fakeDiscountNote: "MSRP of ₹999 is highly inflated; typically retails around ₹499-₹549",
@@ -1011,7 +1125,7 @@ export const products = [
     isPrime: true,
     delivery: "Get it by Tomorrow, 6 PM",
     deliveryFree: true,
-    trustScore: 81,
+    trustScore: 55,
     trustLabel: "Genuine",
     isFakeDiscount: false,
     buyNowOrWait: "wait",
@@ -1559,7 +1673,7 @@ export const products = [
     isPrime: true,
     delivery: "Get it by Tomorrow, 8 AM",
     deliveryFree: true,
-    trustScore: 78,
+    trustScore: 52,
     trustLabel: "Genuine",
     isFakeDiscount: true,
     fakeDiscountNote: "MRP of ₹4499 is speculative. This product historically anchors between ₹1299 and ₹1599 in global markets.",

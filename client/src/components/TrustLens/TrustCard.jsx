@@ -1,5 +1,5 @@
 import React from "react";
-import { X, MessageSquare, RotateCcw, FileText, Store, TrendingUp, Shield } from "lucide-react";
+import { X, MessageSquare, RotateCcw, FileText, Store, Shield, Cpu } from "lucide-react";
 
 const METRICS = [
   {
@@ -29,13 +29,6 @@ const METRICS = [
     icon: Store,
     goodDetail: "Established seller with strong ratings, Amazon-fulfilled, and years of consistent performance.",
     badDetail: "New or inconsistent seller — limited history or below-average ratings."
-  },
-  {
-    key: "priceStability",
-    label: "Price Stability",
-    icon: TrendingUp,
-    goodDetail: "Price has been consistent — the current discount reflects genuine value.",
-    badDetail: "Price fluctuates heavily — the listed MRP appears inflated to manufacture a fake discount."
   }
 ];
 
@@ -46,7 +39,7 @@ function getColor(score) {
 }
 
 function defaultBreakdown(trustScore) {
-  const offsets = { reviewAuthenticity: -12, returnRate: +13, warrantyClaims: +5, sellerReliability: +16, priceStability: -18 };
+  const offsets = { reviewAuthenticity: -12, returnRate: +13, warrantyClaims: +5, sellerReliability: +16 };
   const clamp = (v) => Math.max(12, Math.min(97, v));
   return Object.fromEntries(
     Object.entries(offsets).map(([k, off]) => [k, { score: clamp(trustScore + off) }])
@@ -56,6 +49,10 @@ function defaultBreakdown(trustScore) {
 export default function TrustCard({ product, onClose }) {
   const breakdown = product.trustBreakdown || defaultBreakdown(product.trustScore);
   const overall = getColor(product.trustScore);
+  const reviewCount = (product.reviews || []).length;
+  const signalSummary = reviewCount > 0
+    ? `Based on ${reviewCount} review${reviewCount > 1 ? "s" : ""}, seller history & category benchmarks`
+    : `Based on seller history & category benchmarks`;
 
   return (
     <div
@@ -73,7 +70,7 @@ export default function TrustCard({ product, onClose }) {
               <div className="flex items-center gap-1.5 mb-1">
                 <Shield size={13} className="text-[#FF9900]" />
                 <span className="text-[#FF9900] text-[11px] font-bold uppercase tracking-widest">
-                  TrustLens™ Breakdown
+                  TrustLens™ AI — Signal Analysis
                 </span>
               </div>
               <h3 className="text-white font-semibold text-sm leading-snug max-w-[280px] line-clamp-2">
@@ -166,8 +163,11 @@ export default function TrustCard({ product, onClose }) {
 
         {/* ── Footer ── */}
         <div className="px-5 pb-4">
-          <div className="text-[10px] text-[#999] text-center bg-gray-50 rounded-lg py-2 px-3">
-            Scores computed from review patterns, price history, and seller data. Updated daily by TrustLens™.
+          <div className="bg-gray-50 rounded-lg py-2.5 px-3 flex items-start gap-2">
+            <Cpu size={12} className="text-[#999] mt-0.5 flex-shrink-0" />
+            <p className="text-[10px] text-[#999] leading-relaxed">
+              {signalSummary}. Scores computed live by the TrustLens™ AI engine — review authenticity (35%), seller reliability (25%), return rate (20%), warranty claims (20%).
+            </p>
           </div>
         </div>
       </div>

@@ -1,14 +1,35 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
-import { formatPrice, getTrustColor } from "../utils/format.js";
+import { useWishlist } from "../contexts/WishlistContext.jsx";
+import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
+import { formatPrice } from "../utils/format.js";
 import StarRating from "./StarRating.jsx";
-import { Leaf } from "lucide-react";
+import { Heart, Leaf, Users } from "lucide-react";
+
+// Map companyStatus → badge colours
+const STATUS_BADGE = {
+  VERIFIED: "bg-[#067D62] text-white",
+  MIXED:    "bg-[#FF9900] text-[#0F1111]",
+  FLAGGED:  "bg-[#CC0C39] text-white",
+};
+const STATUS_LABEL = {
+  VERIFIED: "Verified",
+  MIXED:    "Mixed",
+  FLAGGED:  "Flagged",
+};
 
 export default function ProductCard({ product, greenerChoice = false }) {
-  const navigate = useNavigate();
-  const { addToCart } = useCart();
-  const trust = getTrustColor(product.trustScore);
+  const navigate  = useNavigate();
+  const { addToCart }       = useCart();
+  const { toggle, isInWishlist } = useWishlist();
+  const { startAddToPlan, plans } = useCoPlanner();
+  const wishlisted = isInWishlist(product.id);
+
+  const score  = product.productScore  ?? product.trustScore  ?? 70;
+  const status = product.productStatus ?? (score >= 75 ? "VERIFIED" : "TRUSTED");
+  const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.MIXED;
+  const badgeLabel = STATUS_LABEL[status] ?? status;
 
   return (
     <div
@@ -28,9 +49,9 @@ export default function ProductCard({ product, greenerChoice = false }) {
           }}
         />
 
-        {/* TrustLens badge */}
-        <div className={`absolute top-2 right-2 ${trust.bg} ${trust.text} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
-          {product.trustScore} · {trust.label}
+        {/* TrustLens badge — computed company score */}
+        <div className={`absolute top-2 right-2 ${badgeCls} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+          {score} · {badgeLabel}
         </div>
 
         {/* Prime badge */}
@@ -40,7 +61,16 @@ export default function ProductCard({ product, greenerChoice = false }) {
           </div>
         )}
 
-        {/* Greener Choice badge — only when sustainability mode surfaces it */}
+        {/* Wishlist heart */}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggle(product); }}
+          className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white shadow border border-gray-200 flex items-center justify-center transition-colors hover:border-red-300"
+          title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+        >
+          <Heart size={14} className={wishlisted ? "text-[#CC0C39] fill-[#CC0C39]" : "text-gray-400"} />
+        </button>
+
+        {/* Greener Choice badge */}
         {greenerChoice && (
           <div className="absolute bottom-2 left-2 flex items-center gap-0.5 bg-[#E8F5E9] text-[#1B5E20] text-[10px] font-bold px-1.5 py-0.5 rounded">
             <Leaf size={9} />
@@ -59,7 +89,6 @@ export default function ProductCard({ product, greenerChoice = false }) {
           <StarRating rating={product.rating} count={product.reviewCount} />
         </div>
 
-        {/* Price */}
         <div className="mt-auto">
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-lg font-medium text-[#0F1111]">
@@ -80,22 +109,23 @@ export default function ProductCard({ product, greenerChoice = false }) {
           )}
         </div>
 
-        {/* Fake discount warning */}
-        {product.isFakeDiscount && (
-          <div className="mt-2 text-[10px] bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded flex items-center gap-1">
-            ⚠ TrustLens: Price inflated
-          </div>
-        )}
-
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            addToCart(product);
-          }}
+          onClick={(e) => { e.stopPropagation(); addToCart(product); }}
           className="mt-2 w-full btn-orange text-sm py-1.5 rounded-full"
         >
           Add to Cart
         </button>
+        {plans.length > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              startAddToPlan(product);
+            }}
+            className="mt-1.5 w-full flex items-center justify-center gap-1 text-xs py-1.5 rounded-full border border-gray-300 text-[#0F1111] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
+          >
+            <Users size={12} /> Add to Co-Plan
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,13 +1,21 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import productRoutes from "./routes/products.js";
 import witnessRoutes from "./routes/witness.js";
 import senseRoutes from "./routes/sense.js";
 import authRoutes from "./routes/auth.js";
+import smartSearch from "./routes/smartSearch.js";
+import priceDropRoutes from "./routes/priceDrop.js";
+import coPlannerRoutes from "./routes/coPlanner.js";
+import customerRoutes from "./routes/customers.js";
+import companyRoutes from "./routes/companies.js";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,9 +25,14 @@ app.use(express.json());
 
 // Routes
 app.use("/api/products", productRoutes);
+app.use("/api/smart-search", smartSearch);
 app.use("/api/witness", witnessRoutes);
 app.use("/api/sense", senseRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/price-drop", priceDropRoutes);
+app.use("/api/co-planner", coPlannerRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/companies", companyRoutes);
 
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
 
