@@ -63,8 +63,8 @@ export default function ContinueYourJourney({
       label: title,
     };
 
-  const handleExplore = () =>
-    navigate(`/s?q=${encodeURIComponent(query)}`);
+const handleExplore = () =>
+  navigate("/bundles");
 
   const fmt = (n) =>
     n >= 1000
@@ -85,7 +85,7 @@ export default function ContinueYourJourney({
       </div>
 
       <button
-        onClick={() => navigate("/s?q=bundles")}
+        onClick={() => navigate("/bundles")}
         className="text-[#007185] hover:text-[#C7511F] text-sm hover:underline"
       >
         View more bundles →
