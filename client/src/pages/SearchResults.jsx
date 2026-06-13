@@ -2,9 +2,11 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import { API } from "../utils/format.js";
+import { useSustainability } from "../contexts/SustainabilityContext.jsx";
+import { getSustainabilityData } from "../utils/sustainability.js";
 import ProductCard from "../components/ProductCard.jsx";
 import BundleCard from "../components/BundleCard.jsx";
-import { SlidersHorizontal, X, ChevronDown, ChevronUp } from "lucide-react";
+import { SlidersHorizontal, X, ChevronDown, ChevronUp, Leaf } from "lucide-react";
 
 const SORT_OPTIONS = ["Featured", "Price: Low to High", "Price: High to Low", "Avg. Customer Review", "Newest Arrivals"];
 
@@ -46,6 +48,7 @@ export default function SearchResults() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const categoryParam = searchParams.get("category") || "All";
+  const { prefs } = useSustainability();
 
   const [rawProducts, setRawProducts] = useState([]);
   const [bundle, setBundle] = useState(null);
@@ -146,15 +149,28 @@ export default function SearchResults() {
     return ps;
   }, [rawProducts, categoryParam, selectedBrands, selectedRating, selectedPrices]);
 
-  // Sort
+  // Sort — with optional eco boost when Sustainability Mode is on
   const sortedProducts = useMemo(() => {
-    return [...filteredProducts].sort((a, b) => {
+    const sorted = [...filteredProducts].sort((a, b) => {
       if (sort === "Price: Low to High") return a.price - b.price;
       if (sort === "Price: High to Low") return b.price - a.price;
       if (sort === "Avg. Customer Review") return (b.rating || 0) - (a.rating || 0);
       return 0;
     });
-  }, [filteredProducts, sort]);
+
+    // When eco mode + prioritizeEco: apply a secondary sort boost for high sustainability scores
+    if (prefs.enabled && prefs.prioritizeEco && sort === "Featured") {
+      sorted.sort((a, b) => {
+        const sa = getSustainabilityData(a.id).score;
+        const sb = getSustainabilityData(b.id).score;
+        // Only boost when eco score difference is meaningful (>15 pts)
+        if (Math.abs(sa - sb) > 15) return sb - sa;
+        return 0;
+      });
+    }
+
+    return sorted;
+  }, [filteredProducts, sort, prefs]);
 
   const activeFilterCount =
     selectedBrands.size + (selectedRating !== null ? 1 : 0) + selectedPrices.size;
@@ -329,6 +345,19 @@ export default function SearchResults() {
             </div>
           </div>
 
+          {/* Eco mode banner */}
+          {prefs.enabled && prefs.prioritizeEco && (
+            <div className="flex items-center gap-2 mb-3 bg-green-50 border border-green-200 rounded px-3 py-2">
+              <Leaf size={13} className="text-[#1B5E20] flex-shrink-0" />
+              <span className="text-xs text-[#1B5E20] font-medium">
+                Sustainability Mode is on — greener products are ranked higher.
+              </span>
+              <Link to="/account" className="ml-auto text-xs text-[#007185] hover:underline flex-shrink-0">
+                Settings
+              </Link>
+            </div>
+          )}
+
           {/* Active filter chips */}
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
@@ -386,9 +415,13 @@ export default function SearchResults() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {sortedProducts.map((p) => (
-                    <ProductCard key={p.id} product={p} />
-                  ))}
+                  {sortedProducts.map((p) => {
+                    const ecoScore = getSustainabilityData(p.id).score;
+                    const isGreener = prefs.enabled && prefs.prioritizeEco && ecoScore >= 75;
+                    return (
+                      <ProductCard key={p.id} product={p} greenerChoice={isGreener} />
+                    );
+                  })}
                 </div>
               )}
             </>

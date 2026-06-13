@@ -1,8 +1,12 @@
 /**
  * Mock data for the ShoppingInsights section.
  * Shape is stable — swap fetchInsights prop for a live API when ready.
+ *
+ * Sustainability insights (type: "sustainability_*") are filtered in/out
+ * by ShoppingInsights based on whether Sustainability Mode is enabled.
  */
-export const INSIGHTS_MOCK = [
+
+export const INSIGHTS_BASE = [
   {
     id: "money_saved",
     type: "money_saved",
@@ -51,16 +55,34 @@ export const INSIGHTS_MOCK = [
     icon: "refresh",
     accentColor: "orange",
   },
+];
+
+export const INSIGHTS_SUSTAINABILITY = [
   {
-    id: "sustainability",
-    type: "sustainability",
-    title: "Sustainability score",
-    value: "Better than 72% of shoppers",
-    subtext: "4 eco-certified products bought this month",
+    id: "sustainability_score",
+    type: "sustainability_score",
+    title: "Your sustainability score",
+    value: "78/100",
+    subtext: "Better than 68% of shoppers",
     delta: null,
     deltaLabel: null,
-    cta: { label: "Shop sustainable", href: "/s?q=eco+certified" },
+    cta: { label: "View dashboard", href: "/sustainability" },
+    icon: "leaf",
+    accentColor: "green",
+  },
+  {
+    id: "sustainability_recyclable",
+    type: "sustainability_recyclable",
+    title: "Recyclable purchases",
+    value: "12 products",
+    subtext: "This month · 73% of total",
+    delta: null,
+    deltaLabel: null,
+    cta: { label: "Shop more", href: "/s?q=eco+certified" },
     icon: "leaf",
     accentColor: "green",
   },
 ];
+
+// Default export — base insights only (sustainability added dynamically)
+export const INSIGHTS_MOCK = INSIGHTS_BASE;

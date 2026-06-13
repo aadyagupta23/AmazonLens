@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API, formatPrice, getTrustColor } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useSustainability } from "../contexts/SustainabilityContext.jsx";
+import { getSustainabilityData } from "../utils/sustainability.js";
 import StarRating from "../components/StarRating.jsx";
 import TrustScore from "../components/TrustLens/TrustScore.jsx";
 import PriceHistory from "../components/TrustLens/PriceHistory.jsx";
@@ -10,6 +12,8 @@ import FakeDiscountAlert from "../components/TrustLens/FakeDiscountAlert.jsx";
 import BuyWaitBox from "../components/TrustLens/BuyWaitBox.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
 import WitnessPanel from "../components/WitnessPanel/WitnessPanel.jsx";
+import SustainabilityPanel from "../components/Sustainability/SustainabilityPanel.jsx";
+import SustainabilityBadge from "../components/Sustainability/SustainabilityBadge.jsx";
 import { Shield, Check, Truck, RotateCcw, ChevronRight, ChevronLeft, Share2, Heart } from "lucide-react";
 
 const QTY_OPTIONS = [1, 2, 3, 4, 5];
@@ -18,6 +22,7 @@ export default function ProductPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { showOnProduct } = useSustainability();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,6 +85,7 @@ export default function ProductPage() {
 
   const trust = getTrustColor(product.trustScore);
   const nonSuspicious = (product.reviews || []).filter((r) => !r.suspicious);
+  const sustainData = getSustainabilityData(product.id);
 
   return (
     <div className="bg-white min-h-screen">
@@ -221,6 +227,9 @@ export default function ProductPage() {
                 </div>
               )}
             </div>
+
+            {/* ── SUSTAINABILITY PANEL (visible when Sustainability Mode is on) ── */}
+            {showOnProduct && <SustainabilityPanel data={sustainData} />}
 
             {/* ── PRICING ── */}
             <div className="mb-4">
@@ -466,6 +475,21 @@ export default function ProductPage() {
                   </div>
                 )}
               </div>
+
+              {/* Sustainability mini-badge in buy box (only when mode is on) */}
+              {showOnProduct && (
+                <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[#1B5E20] text-xs font-bold">Sustainability</div>
+                      <div className="text-[#1B5E20]/70 text-[10px]">
+                        {sustainData.score >= 75 ? "Eco-Friendly" : sustainData.score >= 50 ? "Moderate" : "Low Impact"}
+                      </div>
+                    </div>
+                    <div className="text-[#1B5E20] text-2xl font-bold">{sustainData.score}</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
