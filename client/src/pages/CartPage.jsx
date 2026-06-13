@@ -25,7 +25,7 @@ export default function CartPage() {
           trustScore: 88,
           urgency: "Due today",
           daysOverdue: 0,
-          thumbnail: "https://m.media-amazon.com/images/I/71Rj8EH9Y+L._AC_SL1500_.jpg"
+          thumbnail: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg"
         }]);
       });
   }, []);

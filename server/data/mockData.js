@@ -29,11 +29,10 @@ export const products = [
       priceStability: { score: 34, detail: "Price changed 8 times in 12 months. MRP of ₹89,999 is listed only to show a 39% 'discount' — the product has never sold at that MRP." }
     },
     images: [
-      "https://placehold.co/400x400/1a1a2e/FFFFFF?font=montserrat&text=Sony+Bravia+55%22",
-      "https://placehold.co/400x400/1a1a2e/FF9900?font=montserrat&text=Sony+Bravia+Back",
-      "https://placehold.co/400x400/1a1a2e/FFFFFF?font=montserrat&text=Sony+Bravia+Side"
+      "https://upload.wikimedia.org/wikipedia/commons/2/27/Sony_Bravia_3D_on_display_at_CES_20110106.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/6/67/Samsung_Smart_TV_2012_%28E-Series%29.jpg"
     ],
-    thumbnail: "https://placehold.co/400x400/1a1a2e/FFFFFF?font=montserrat&text=Sony+Bravia+55%22",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/2/27/Sony_Bravia_3D_on_display_at_CES_20110106.jpg",
     description:
       "Experience stunning 4K HDR picture quality with X-Reality PRO and Triluminos Pro display technology. Google TV gives you easy access to your favourite streaming apps with voice control via Alexa or Google Assistant.",
     features: [
@@ -178,9 +177,9 @@ export const products = [
     spikePriceMonths: [3, 9],
     priceHistory: [18999, 18999, 12999, 11999, 8999, 8999, 8999, 8999, 8999, 11999, 8999, 8999],
     images: [
-      "https://placehold.co/400x400/f4a261/000000?font=montserrat&text=JBL+Cinema+SB271"
+      "https://upload.wikimedia.org/wikipedia/commons/1/17/Home_Theater_Speakers_1_2019-06-22.jpg"
     ],
-    thumbnail: "https://placehold.co/400x400/f4a261/000000?font=montserrat&text=JBL+Cinema+SB271",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/1/17/Home_Theater_Speakers_1_2019-06-22.jpg",
     description: "Experience powerful home cinema audio with JBL Pro Sound. The wireless subwoofer delivers deep bass without cable clutter.",
     features: [
       "2.1 Channel with wireless subwoofer",
@@ -276,9 +275,11 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [1299, 1299, 999, 999, 999, 1099, 999, 999, 999, 999, 999, 999],
     images: [
-      "https://placehold.co/400x400/e63946/FFFFFF?font=montserrat&text=boAt+Airdopes+141"
+      "https://www.boat-lifestyle.com/cdn/shop/files/AD141-FI_Black01_1024x.png",
+      "https://www.boat-lifestyle.com/cdn/shop/files/AD141-FI_Black02_1024x.jpg",
+      "https://www.boat-lifestyle.com/cdn/shop/files/AD141-FI_Black03_1024x.jpg"
     ],
-    thumbnail: "https://placehold.co/400x400/e63946/FFFFFF?font=montserrat&text=boAt+Airdopes+141",
+    thumbnail: "https://www.boat-lifestyle.com/cdn/shop/files/AD141-FI_Black01_1024x.png",
     description: "Experience ultimate audio freedom with boAt Airdopes 141. Features ENx Technology for clear calls and 42H of total playback.",
     features: [
       "42H total playback with case",
@@ -324,9 +325,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [750, 749, 699, 649, 649, 649, 649, 649, 699, 649, 649, 649],
     images: [
-      "https://placehold.co/400x400/8B1A1A/FFFFFF?font=montserrat&text=Nescafe+Gold+200g"
+      "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg"
     ],
-    thumbnail: "https://placehold.co/400x400/8B1A1A/FFFFFF?font=montserrat&text=Nescafe+Gold+200g",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg",
     description: "Nescafé Gold Blend is a premium instant coffee made from a blend of Arabica and Robusta beans, expertly roasted to deliver a rich, smooth flavour.",
     features: [
       "Arabica and Robusta blend",
@@ -370,9 +371,9 @@ export const products = [
     spikePriceMonths: [2, 8],
     priceHistory: [56900, 48999, 56900, 39999, 34999, 32999, 32999, 32999, 56900, 32999, 32999, 32999],
     images: [
-      "https://placehold.co/400x400/1d3557/FFFFFF?font=montserrat&text=Samsung+43%22+4K"
+      "https://upload.wikimedia.org/wikipedia/commons/6/67/Samsung_Smart_TV_2012_%28E-Series%29.jpg"
     ],
-    thumbnail: "https://placehold.co/400x400/1d3557/FFFFFF?font=montserrat&text=Samsung+43%22+4K",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/6/67/Samsung_Smart_TV_2012_%28E-Series%29.jpg",
     description: "Samsung Crystal 4K processor with 4K UHD upscaling. Tizen Smart TV with access to Netflix, Prime Video, and more.",
     features: [
       "43 inch Crystal 4K display",
@@ -419,9 +420,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [3200, 2800, 2499, 1999, 1895, 1895, 1895, 1895, 1895, 1895, 1895, 1895],
     images: [
-      "https://placehold.co/400x400/2d6a4f/FFFFFF?font=montserrat&text=Prestige+5L+Cooker"
+      "https://upload.wikimedia.org/wikipedia/commons/d/d4/Indian_Cooker.jpg"
     ],
-    thumbnail: "https://placehold.co/400x400/2d6a4f/FFFFFF?font=montserrat&text=Prestige+5L+Cooker",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/d/d4/Indian_Cooker.jpg",
     description: "Hard anodised for durability and even heat distribution. Suitable for all stovetops.",
     features: [
       "5 litre capacity",
@@ -464,9 +465,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [7999, 7999, 6999, 6999, 6999, 5999, 6999, 6999, 6999, 6999, 6999, 6999],
     images: [
-      "https://placehold.co/400x400/FF9900/1a1a1a?font=montserrat&text=Fire+TV+Stick+4K"
+      "https://upload.wikimedia.org/wikipedia/commons/2/21/FireTV_Stick_3rd_Gen.jpg"
     ],
-    thumbnail: "https://placehold.co/400x400/FF9900/1a1a1a?font=montserrat&text=Fire+TV+Stick+4K",
+    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/2/21/FireTV_Stick_3rd_Gen.jpg",
     description: "Fire TV Stick 4K Max supports Wi-Fi 6E for lightning-fast streaming. Access 1.5 million movies and TV episodes.",
     features: [
       "4K + HDR10+ streaming",
