@@ -1,8 +1,9 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingCart, Search, MapPin, ChevronDown, Menu } from "lucide-react";
+import { ShoppingCart, Search, MapPin, ChevronDown, Menu, Leaf } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 
 const CATEGORIES = [
   "All", "Electronics", "Fashion", "Home & Kitchen",
@@ -13,6 +14,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, realUser, logout } = useAuth();
   const { itemCount } = useCart();
+  const { prefs, toggleMode } = useSustainability();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [showAccount, setShowAccount] = useState(false);
@@ -130,12 +132,12 @@ export default function Navbar() {
                 <hr className="my-3 border-gray-200" />
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   {[
-                    { label: "Your Account", href: "/account" },
-                    { label: "Your Orders", href: "/orders" },
-                    { label: "Your Wishlist", href: "/wishlist" },
-                    { label: "Your Prime", href: "/prime" },
-                    { label: "Recommendations", href: "/" },
-                    { label: "Browsing History", href: "/history" },
+                    { label: "Your Account",       href: "/account"       },
+                    { label: "Your Orders",        href: "/orders"        },
+                    { label: "Your Wishlist",      href: "/wishlist"      },
+                    { label: "Your Prime",         href: "/prime"         },
+                    { label: "Recommendations",    href: "/"              },
+                    { label: "Browsing History",   href: "/history"       },
                   ].map((item) => (
                     <Link
                       key={item.label}
@@ -145,6 +147,27 @@ export default function Navbar() {
                       {item.label}
                     </Link>
                   ))}
+                </div>
+                <hr className="my-3 border-gray-200" />
+                {/* Sustainability quick-access */}
+                <div className="flex items-center justify-between">
+                  <Link
+                    to="/sustainability"
+                    className="flex items-center gap-1 text-xs text-[#1B5E20] hover:underline font-medium"
+                  >
+                    <Leaf size={11} />
+                    Sustainability
+                  </Link>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleMode(); }}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                      prefs.enabled
+                        ? "bg-[#1B5E20] text-white"
+                        : "border border-[#1B5E20] text-[#1B5E20]"
+                    }`}
+                  >
+                    {prefs.enabled ? "Eco On" : "Eco Off"}
+                  </button>
                 </div>
               </div>
             )}
@@ -216,6 +239,17 @@ export default function Navbar() {
           <Link to="/minitv" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
             Amazon miniTV
           </Link>
+
+          {/* Sustainability Mode indicator — only visible when on */}
+          {prefs.enabled && (
+            <Link
+              to="/sustainability"
+              className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-[#1B5E20]/80 hover:bg-[#1B5E20] rounded text-xs font-medium text-white flex-shrink-0 transition-colors"
+            >
+              <Leaf size={11} />
+              Eco Mode On
+            </Link>
+          )}
         </div>
       </div>
     </header>
