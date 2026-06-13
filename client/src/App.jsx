@@ -1,4 +1,3 @@
-import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar.jsx";
 import Homepage from "./pages/Homepage.jsx";
@@ -9,6 +8,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import SmartSearchPage from './pages/SmartSearchPage';
 
 export default function App() {
   return (
@@ -23,6 +23,7 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/smart-search" element={<SmartSearchPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

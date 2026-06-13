@@ -1,6 +1,6 @@
-import React, { useState, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { ShoppingCart, Search, MapPin, ChevronDown, Menu } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
+import { ShoppingCart, Search, MapPin, ChevronDown, Menu, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
 
@@ -15,17 +15,33 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user, realUser, logout } = useAuth();
   const { itemCount } = useCart();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [showAccount, setShowAccount] = useState(false);
+  const [smartMode, setSmartMode] = useState(false);
   const inputRef = useRef(null);
+
+  // Sync query from URL when on smart-search page
+  useEffect(() => {
+    if (location.pathname === "/smart-search") {
+      const urlQuery = searchParams.get("q") || "";
+      setQuery(urlQuery);
+      setSmartMode(true);
+    }
+  }, [location.pathname, searchParams]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (!query.trim()) return;
-    navigate(`/s?q=${encodeURIComponent(query.trim())}`);
+    if (smartMode) {
+      navigate(`/smart-search?q=${encodeURIComponent(query.trim())}`);
+    } else {
+      navigate(`/s?q=${encodeURIComponent(query.trim())}`);
+    }
   };
 
   return (
@@ -57,29 +73,51 @@ export default function Navbar() {
 
           {/* Search bar */}
           <form onSubmit={handleSearch} className="flex flex-1 h-10 rounded overflow-hidden">
-            {/* Category selector */}
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="bg-[#F3F3F3] text-[#131921] text-xs px-2 border-r border-gray-300 cursor-pointer hidden sm:block min-w-[80px] max-w-[120px]"
+            {/* Smart Search toggle button */}
+            <button
+              type="button"
+              onClick={() => {
+                setSmartMode((v) => !v);
+                inputRef.current?.focus();
+              }}
+              title={smartMode ? "AI Smart Search active — click for normal search" : "Normal search — click for AI Smart Search"}
+              className={`flex items-center gap-1 px-2.5 text-xs font-semibold border-r border-gray-300 transition-colors whitespace-nowrap ${
+                smartMode
+                  ? "bg-[#FF9900] text-white"
+                  : "bg-[#F3F3F3] text-[#131921] hover:bg-[#e8e8e8]"
+              }`}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+              <Sparkles size={13} className={smartMode ? "text-white" : "text-[#FF9900]"} />
+              <span className="hidden sm:inline">{smartMode ? "✨ Smart" : "AI"}</span>
+            </button>
+
+            {/* Category selector (hidden in smart mode) */}
+            {!smartMode && (
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="bg-[#F3F3F3] text-[#131921] text-xs px-2 border-r border-gray-300 cursor-pointer hidden sm:block min-w-[80px] max-w-[120px]"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            )}
+
             {/* Search input */}
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search Amazon.in"
+              placeholder={smartMode ? 'Try "TV setup under ₹70,000" or "best earbuds"' : "Search Amazon.in"}
               className="flex-1 px-3 text-[#131921] text-sm outline-none bg-white"
             />
+
             {/* Search button */}
             <button
               type="submit"
-              className="bg-[#FF9900] hover:bg-[#F3A847] px-4 flex items-center justify-center"
+              className="bg-[#FF9900] hover:bg-[#F3A847] px-4 flex items-center justify-center transition-colors"
             >
               <Search size={20} className="text-[#131921]" />
             </button>
