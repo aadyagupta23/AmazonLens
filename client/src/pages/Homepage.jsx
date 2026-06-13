@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API, formatPrice, getTrustColor } from "../utils/format.js";
+import { API } from "../utils/format.js";
 import ProductCard from "../components/ProductCard.jsx";
 import SensePopup from "../components/SensePopup.jsx";
+import ContinueYourJourney from "../components/ContinueYourJourney/ContinueYourJourney.jsx";
+import RecommendedJourneys from "../components/RecommendedJourneys/RecommendedJourneys.jsx";
+import LifestyleJourneys from "../components/LifestyleJourneys/LifestyleJourneys.jsx";
+import ShoppingInsights from "../components/ShoppingInsights/ShoppingInsights.jsx";
 import {
   ChevronRight, Smartphone, Tv, Music2, UtensilsCrossed,
-  Shirt, BookOpen, Dumbbell, ShoppingBasket, Laptop, Sparkles
+  Shirt, BookOpen, Dumbbell, ShoppingBasket, Laptop, Sparkles,
 } from "lucide-react";
 
 const HERO_SLIDES = [
@@ -17,7 +21,7 @@ const HERO_SLIDES = [
     subtitle: "Up to 80% off on top electronics",
     cta: "Shop Electronics",
     query: "electronics",
-    badge: "LIVE NOW"
+    badge: "LIVE NOW",
   },
   {
     id: 2,
@@ -26,8 +30,8 @@ const HERO_SLIDES = [
     subtitle: "Exclusive deals on Sony, Samsung, Apple & more",
     cta: "Explore Deals",
     query: "home theatre setup under 40000",
-    badge: "PRIME"
-  }
+    badge: "PRIME",
+  },
 ];
 
 const CATEGORIES_GRID = [
@@ -63,9 +67,11 @@ export default function Homepage() {
     <div>
       <SensePopup />
 
-      {/* Hero Banner */}
-      <div className={`bg-gradient-to-r ${slide.bg} text-white relative overflow-hidden`}
-           style={{ minHeight: 240 }}>
+      {/* ── 1. HERO BANNER ── */}
+      <div
+        className={`bg-gradient-to-r ${slide.bg} text-white relative overflow-hidden`}
+        style={{ minHeight: 240 }}
+      >
         <div className="max-w-[1500px] mx-auto px-4 py-12 relative z-10">
           {slide.badge && (
             <span className="inline-block bg-[#FF9900] text-[#131921] text-xs font-bold px-3 py-1 rounded-full mb-3">
@@ -82,11 +88,8 @@ export default function Homepage() {
             <ChevronRight size={16} />
           </button>
         </div>
-        {/* Decorative circles */}
         <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="absolute right-20 bottom-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2" />
-
-        {/* Slide dots */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
           {HERO_SLIDES.map((_, i) => (
             <button
@@ -98,18 +101,27 @@ export default function Homepage() {
         </div>
       </div>
 
-      <div className="max-w-[1500px] mx-auto px-4 py-6">
-        {/* Categories grid */}
-        <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
+      <div className="max-w-[1500px] mx-auto px-4 py-4 space-y-4">
+
+        {/* ── 2. CONTINUE YOUR JOURNEY (1 featured bundle) ── */}
+        <ContinueYourJourney />
+
+        {/* ── 3. SHOP BY CATEGORY ── */}
+        <div className="bg-white rounded shadow-sm p-5">
           <h2 className="font-bold text-[#0F1111] text-lg mb-4">Shop by Category</h2>
           <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
             {CATEGORIES_GRID.map((cat) => (
               <button
                 key={cat.name}
                 onClick={() => navigate(`/s?q=${cat.query}`)}
-                className="flex flex-col items-center gap-2 py-4 px-2 rounded border border-transparent hover:border-[#DDD] hover:bg-[#FAFAFA] transition-all group"
+                className="flex flex-col items-center gap-2 py-4 px-2 rounded border border-transparent
+                           hover:border-[#DDD] hover:bg-[#FAFAFA] transition-all group"
               >
-                <cat.Icon size={22} className="text-[#565959] group-hover:text-[#C7511F] transition-colors" strokeWidth={1.5} />
+                <cat.Icon
+                  size={22}
+                  className="text-[#565959] group-hover:text-[#C7511F] transition-colors"
+                  strokeWidth={1.5}
+                />
                 <span className="text-[11px] text-[#0F1111] text-center group-hover:text-[#C7511F] group-hover:underline leading-tight">
                   {cat.name}
                 </span>
@@ -118,8 +130,8 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* TrustLens highlight banner */}
-        <div className="bg-gradient-to-r from-[#131921] to-[#1d2d3e] rounded-lg p-5 mb-6 text-white">
+        {/* ── 4. TRUSTLENS BANNER ── */}
+        <div className="bg-gradient-to-r from-[#131921] to-[#1d2d3e] rounded p-5 text-white">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -140,8 +152,8 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* Deal of the Day */}
-        <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
+        {/* ── 5. DEAL OF THE DAY ── */}
+        <div className="bg-white rounded shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-[#0F1111] text-lg">Deal of the Day</h2>
             <button
@@ -158,8 +170,8 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* Recommended for you */}
-        <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
+        {/* ── 6. RECOMMENDED FOR YOU ── */}
+        <div className="bg-white rounded shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-[#0F1111] text-lg">Recommended for You</h2>
             <button
@@ -176,12 +188,22 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* Footer strip */}
-        <div className="bg-[#232F3E] text-white rounded-lg p-4 text-center">
+        {/* ── 7. POPULAR SHOPPING LISTS ──
+        <RecommendedJourneys /> */}
+
+        {/* ── 8. RECOMMENDED JOURNEYS (aspirational / lifestyle) ── */}
+        <LifestyleJourneys />
+
+        {/* ── 9. SHOPPING INSIGHTS (analytics layer, bottom) ── */}
+        <ShoppingInsights />
+
+        {/* ── FOOTER ── */}
+        <div className="bg-[#232F3E] text-white rounded p-4 text-center">
           <p className="text-sm text-gray-300">
             Built for Amazon HackOn Season 6 · TrustLens™ · WitnessPanel™ · Amazon Sense™
           </p>
         </div>
+
       </div>
     </div>
   );

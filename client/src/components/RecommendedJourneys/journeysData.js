@@ -1,0 +1,55 @@
+/**
+ * Mock data for the RecommendedJourneys section.
+ */
+export const JOURNEYS_MOCK = [
+  {
+    id: "moving_to_college",
+    title: "Moving to College",
+    description: "Hostel essentials — bedding, stationery, storage, and daily-use items.",
+    productCount: 28,
+    budget: { min: 8000, max: 25000 },
+    topItems: ["Mattress protector", "Study lamp", "Stationery kit", "Power bank"],
+    query: "college hostel essentials",
+    icon: "graduation_cap",
+  },
+  {
+    id: "study_setup",
+    title: "Study Setup",
+    description: "Desk, ergonomic chair, monitor stand, and focus accessories.",
+    productCount: 15,
+    budget: { min: 12000, max: 45000 },
+    topItems: ["Laptop stand", "Desk lamp", "Ergonomic chair", "Cable organiser"],
+    query: "study desk setup monitor",
+    icon: "monitor",
+  },
+  {
+    id: "fitness_journey",
+    title: "Fitness Starter Kit",
+    description: "Home gym gear, supplements, and workout accessories to get started.",
+    productCount: 20,
+    budget: { min: 5000, max: 30000 },
+    topItems: ["Yoga mat", "Resistance bands", "Protein shaker", "Skipping rope"],
+    query: "home gym fitness equipment",
+    icon: "dumbbell",
+  },
+  {
+    id: "first_apartment",
+    title: "First Apartment",
+    description: "Kitchen, bedroom, and living room must-haves for your new place.",
+    productCount: 45,
+    budget: { min: 20000, max: 80000 },
+    topItems: ["Cookware set", "Bedsheet combo", "Storage racks", "Cleaning kit"],
+    query: "apartment home essentials kitchen",
+    icon: "home",
+  },
+  {
+    id: "work_from_home",
+    title: "Work From Home",
+    description: "Ergonomic desk setup, webcam, headset, and productivity accessories.",
+    productCount: 18,
+    budget: { min: 15000, max: 60000 },
+    topItems: ["Mechanical keyboard", "Webcam", "Monitor arm", "Noise-cancel headset"],
+    query: "work from home office setup",
+    icon: "briefcase",
+  },
+];
