@@ -924,7 +924,7 @@ export default function CoPlannerPage() {
               <h2 className="text-sm font-bold text-[#0F1111] flex items-center gap-1.5">
                 <Package size={15} /> Items ({stats.itemCount})
                 <span className="text-[10px] font-normal text-gray-400 ml-2">
-                  Priority ⬆ ⬇
+                  Priority ⬆
                 </span>
               </h2>
               <div className="flex items-center gap-2 text-xs text-gray-500">
