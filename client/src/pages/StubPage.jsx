@@ -17,7 +17,7 @@ const PAGES = {
     subtitle: "Unlimited free delivery, exclusive deals, and more.",
     detail: "Prime members get free same-day delivery, early access to lightning deals, Prime Video, Prime Music, and ad-free reading.",
     cta: "Browse Deals",
-    ctaHref: "/deals",
+    ctaHref: "/s?q=deals",
   },
   "/help": {
     Icon: HelpCircle,

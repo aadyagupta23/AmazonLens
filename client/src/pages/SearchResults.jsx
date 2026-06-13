@@ -103,16 +103,22 @@ export default function SearchResults() {
     }
   }, [query]);
 
-  // Dynamic brands from current results
+  // Category-filtered products (for brand list — stable as brand checkboxes change)
+  const categoryFilteredProducts = useMemo(() => {
+    if (!categoryParam || categoryParam === "All") return rawProducts;
+    return rawProducts.filter((p) => productMatchesCategory(p.category, categoryParam));
+  }, [rawProducts, categoryParam]);
+
+  // Dynamic brands from current category (not affected by brand selections)
   const allBrands = useMemo(() => {
     const counts = {};
-    rawProducts.forEach((p) => {
+    categoryFilteredProducts.forEach((p) => {
       if (p.brand) counts[p.brand] = (counts[p.brand] || 0) + 1;
     });
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([brand, count]) => ({ brand, count }));
-  }, [rawProducts]);
+  }, [categoryFilteredProducts]);
 
   const visibleBrands = showAllBrands ? allBrands : allBrands.slice(0, 8);
 
@@ -180,7 +186,10 @@ export default function SearchResults() {
   if (loading) {
     headerText = "Searching…";
   } else if (isAll) {
-    headerText = `All Products — ${sortedProducts.length} items`;
+    const catLabel = categoryParam !== "All" ? categoryParam : "All";
+    headerText = catLabel !== "All"
+      ? `${catLabel} — ${sortedProducts.length} items`
+      : `All Products — ${sortedProducts.length} items`;
   } else if (isDeals) {
     headerText = `Today's Deals — ${sortedProducts.length} deals`;
   } else {
@@ -202,7 +211,7 @@ export default function SearchResults() {
         <Link to="/" className="text-[#007185] hover:underline">Home</Link>
         <span>›</span>
         {isAll ? (
-          <span>All Products</span>
+          <span>{categoryParam !== "All" ? categoryParam : "All Products"}</span>
         ) : isDeals ? (
           <span>Today's Deals</span>
         ) : (
