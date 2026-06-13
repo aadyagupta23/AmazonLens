@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { formatPrice, getTrustColor } from "../utils/format.js";
 import StarRating from "./StarRating.jsx";
+import { Leaf } from "lucide-react";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, greenerChoice = false }) {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const trust = getTrustColor(product.trustScore);
 
   return (
     <div
-      className="bg-white rounded shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden group"
+      className={`bg-white rounded shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden group ${
+        greenerChoice ? "ring-1 ring-green-300" : ""
+      }`}
       onClick={() => navigate(`/dp/${product.id}`)}
     >
       {/* Image */}
@@ -24,13 +27,24 @@ export default function ProductCard({ product }) {
             e.target.src = `https://placehold.co/300x300/EAEDED/131921?text=${encodeURIComponent(product.brand)}`;
           }}
         />
-        {/* TrustLens badge on card */}
+
+        {/* TrustLens badge */}
         <div className={`absolute top-2 right-2 ${trust.bg} ${trust.text} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
           {product.trustScore} · {trust.label}
         </div>
+
+        {/* Prime badge */}
         {product.isPrime && (
           <div className="absolute top-2 left-2 bg-[#00A8E1] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
             prime
+          </div>
+        )}
+
+        {/* Greener Choice badge — only when sustainability mode surfaces it */}
+        {greenerChoice && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-0.5 bg-[#E8F5E9] text-[#1B5E20] text-[10px] font-bold px-1.5 py-0.5 rounded">
+            <Leaf size={9} />
+            Greener Choice
           </div>
         )}
       </div>
@@ -65,13 +79,6 @@ export default function ProductCard({ product }) {
             <div className="text-xs text-[#007600] mt-1">{product.delivery}</div>
           )}
         </div>
-
-        {/* Fake discount warning */}
-        {product.isFakeDiscount && (
-          <div className="mt-2 text-[10px] bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded flex items-center gap-1">
-            ⚠ TrustLens: Price inflated
-          </div>
-        )}
 
         <button
           onClick={(e) => {
