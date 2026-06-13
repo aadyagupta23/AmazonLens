@@ -1,6 +1,8 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
 import { products, bundles } from "../data/mockData.js";
+import { generateReviews } from "../data/reviewGenerator.js";
+import { computeCompanyScore, scoreToStatus } from "../utils/trustFormula.js";
 
 const router = Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -280,11 +282,28 @@ async function getBookProducts() {
 getDJProducts();
 getBookProducts();
 
-// ── Helper: all products combined ─────────────────────────────────────────
+// ── Helper: all products combined (cached with computed trust scores) ─────
+
+let allProductsCache = null;
 
 async function getAllProducts() {
+  if (allProductsCache) return allProductsCache;
+
   const [dj, books] = await Promise.all([getDJProducts(), getBookProducts()]);
-  return [...products, ...dj, ...books];
+  const base = [...products, ...dj, ...books].map((p) => ({
+    ...p,
+    reviews: generateReviews(p, 10),
+  }));
+
+  // Compute company trust score for every product once and cache
+  allProductsCache = base.map((product) => {
+    const sellerProducts = base.filter((p) => p.soldBy === product.soldBy);
+    const { companyScore, status: companyStatus } = computeCompanyScore(product, sellerProducts);
+    return { ...product, companyScore, companyStatus };
+  });
+
+  console.log(`Trust scores computed for ${allProductsCache.length} products`);
+  return allProductsCache;
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────

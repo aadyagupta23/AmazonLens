@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API, formatPrice, getTrustColor } from "../utils/format.js";
+import { API, formatPrice } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { getSustainabilityData } from "../utils/sustainability.js";
 import StarRating from "../components/StarRating.jsx";
-import TrustScore from "../components/TrustLens/TrustScore.jsx";
+import TrustPanel from "../components/TrustLens/TrustPanel.jsx";
+import UserTrustVote from "../components/TrustLens/UserTrustVote.jsx";
+import MockReturn from "../components/TrustLens/MockReturn.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
 import WitnessPanel from "../components/WitnessPanel/WitnessPanel.jsx";
 import SustainabilityPanel from "../components/Sustainability/SustainabilityPanel.jsx";
 import SustainabilityBadge from "../components/Sustainability/SustainabilityBadge.jsx";
-import { Shield, Check, Truck, RotateCcw, ChevronRight, ChevronLeft, Share2, Heart } from "lucide-react";
+import { Check, Truck, RotateCcw, Share2, Heart, Shield } from "lucide-react";
 
 const QTY_OPTIONS = [1, 2, 3, 4, 5];
 
@@ -19,6 +22,7 @@ export default function ProductPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { toggle: toggleWishlist, isInWishlist } = useWishlist();
   const { showOnProduct } = useSustainability();
 
   const [product, setProduct] = useState(null);
@@ -26,9 +30,25 @@ export default function ProductPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [trustExpanded, setTrustExpanded] = useState(true);
+  const [trustData, setTrustData] = useState(null);
   const [trustAnalyzing, setTrustAnalyzing] = useState(false);
+  const [userReturnCount, setUserReturnCount] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
+
+  const fetchSellerTrust = async (pid, returns = 0) => {
+    setTrustAnalyzing(true);
+    try {
+      const { data: res } = await axios.post(`${API}/api/sense/seller-trust`, {
+        productId: pid,
+        userReturns: returns,
+      });
+      setTrustData(res);
+    } catch (err) {
+      console.warn("TrustLens seller-trust failed:", err?.message || err);
+    } finally {
+      setTrustAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -38,29 +58,11 @@ export default function ProductPage() {
         setProduct(data.product);
         setSelectedImage(0);
 
-        // Live TrustLens analysis — always overrides static mockData score
-        setTrustAnalyzing(true);
-        (async () => {
-          try {
-            const { data: analysisRes } = await axios.post(`${API}/api/sense/analyze`, { productId: data.product.id });
-            if (analysisRes?.analysis) {
-              setProduct((prev) => ({
-                ...prev,
-                trustScore: analysisRes.analysis.trustScore,
-                trustBreakdown: analysisRes.analysis.breakdown,
-                trustReasons: analysisRes.analysis.reasons || [],
-                trustMeta: {
-                  reviewCount: analysisRes.analysis.reviewCount,
-                  sellerSince: analysisRes.analysis.sellerSince,
-                }
-              }));
-            }
-          } catch (err) {
-            console.warn("TrustLens analyze failed:", err?.message || err);
-          } finally {
-            setTrustAnalyzing(false);
-          }
-        })();
+        // Company trust score (seller-level formula)
+        const pid = data.product.id;
+        const savedReturns = JSON.parse(localStorage.getItem(`returns_${pid}`) || "[]");
+        setUserReturnCount(savedReturns.length);
+        fetchSellerTrust(pid, savedReturns.length);
       })
       .catch(() => navigate("/"))
       .finally(() => setLoading(false));
@@ -87,7 +89,6 @@ export default function ProductPage() {
 
   if (!product) return null;
 
-  const trust = getTrustColor(product.trustScore);
   const nonSuspicious = (product.reviews || []).filter((r) => !r.suspicious);
   const sustainData = getSustainabilityData(product.id);
 
@@ -147,8 +148,16 @@ export default function ProductPage() {
               <button className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] hover:underline">
                 <Share2 size={13} /> Share
               </button>
-              <button className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] hover:underline">
-                <Heart size={13} /> Wishlist
+              <button
+                onClick={() => product && toggleWishlist(product)}
+                className="flex items-center gap-1.5 text-xs hover:underline"
+                style={{ color: product && isInWishlist(product.id) ? "#CC0C39" : "#007185" }}
+              >
+                <Heart
+                  size={13}
+                  className={product && isInWishlist(product.id) ? "fill-[#CC0C39] text-[#CC0C39]" : ""}
+                />
+                {product && isInWishlist(product.id) ? "Wishlisted" : "Wishlist"}
               </button>
             </div>
           </div>
@@ -177,55 +186,30 @@ export default function ProductPage() {
             <hr className="my-3 border-gray-200" />
 
             {/* ── TRUSTLENS PANEL ── */}
-            <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 border border-gray-200 rounded-xl p-4 mb-4">
-              {/* TrustLens header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Shield size={16} className="text-[#131921]" />
-                  <span className="font-bold text-[#0F1111] text-sm">TrustLens™</span>
-                  <span className="text-[10px] bg-[#131921] text-white px-2 py-0.5 rounded-full font-bold">BETA</span>
-                </div>
-                <button
-                  onClick={() => setTrustExpanded(!trustExpanded)}
-                  className="text-xs text-[#007185] hover:underline"
-                >
-                  {trustExpanded ? "Collapse" : "Expand"}
-                </button>
-              </div>
-
-              {/* Trust score — animates from scanning state to live result */}
-              <TrustScore score={product.trustScore} size="lg" product={trustAnalyzing ? null : product} analyzing={trustAnalyzing} />
-
-              {trustExpanded && !trustAnalyzing && (
-                <div className="mt-4 space-y-4">
-                  {/* Live signal explanations from backend */}
-                  {product.trustReasons && product.trustReasons.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <div className="text-xs text-[#565959] font-semibold mb-2 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF9900] inline-block" />
-                        Signals flagged by TrustLens™
-                      </div>
-                      <ul className="space-y-1.5">
-                        {product.trustReasons.map((r, i) => (
-                          <li key={i} className="text-xs text-[#0F1111] flex items-start gap-1.5">
-                            <span className="text-[#CC0C39] mt-0.5 flex-shrink-0">•</span>
-                            {r}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Suspicious reviews */}
-                  <SuspiciousReviews reviews={product.reviews || []} />
+            <div className="mb-4">
+              <TrustPanel
+                data={trustData}
+                loading={trustAnalyzing}
+                sellerName={trustData?.sellerName}
+              />
+              {/* User vote + mock return — shown once data loads */}
+              {!trustAnalyzing && trustData && (
+                <div className="mt-1 bg-white border border-gray-200 rounded-2xl px-4 py-1 shadow-sm">
+                  <UserTrustVote productId={productId} />
+                  <MockReturn
+                    productId={productId}
+                    productName={product.name}
+                    onReturnFiled={(count) => {
+                      setUserReturnCount(count);
+                      fetchSellerTrust(productId, count);
+                    }}
+                  />
                 </div>
               )}
-
-              {trustExpanded && trustAnalyzing && (
-                <div className="mt-4 bg-white border border-gray-100 rounded-lg p-4 text-center">
-                  <p className="text-xs text-[#565959] animate-pulse">
-                    Running signal analysis — review authenticity, seller history, category benchmarks…
-                  </p>
+              {/* Suspicious reviews (shown below panel) */}
+              {!trustAnalyzing && (product.reviews || []).some((r) => r.suspicious) && (
+                <div className="mt-2">
+                  <SuspiciousReviews reviews={product.reviews || []} />
                 </div>
               )}
             </div>
@@ -463,19 +447,30 @@ export default function ProductPage() {
               </div>
 
               {/* TrustLens mini-badge in buy box */}
-              <div className={`mt-4 ${trustAnalyzing ? "bg-[#FF9900]" : trust.bg} rounded-lg px-3 py-2 transition-colors duration-700`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-white text-xs font-bold">TrustLens™ Score</div>
-                    <div className="text-white/80 text-[10px]">
-                      {trustAnalyzing ? "Analyzing…" : trust.label}
+              {(() => {
+                const statusBg = !trustData ? "#FF9900"
+                  : trustData.status === "VERIFIED" ? "#16a34a"
+                  : trustData.status === "MIXED" ? "#ea580c"
+                  : "#dc2626";
+                return (
+                  <div
+                    className="mt-4 rounded-lg px-3 py-2 transition-colors duration-700"
+                    style={{ backgroundColor: statusBg }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-white text-xs font-bold">TrustLens™</div>
+                        <div className="text-white/80 text-[10px]">
+                          {trustAnalyzing ? "Analyzing…" : (trustData?.status || "—")}
+                        </div>
+                      </div>
+                      <div className="text-white text-2xl font-bold">
+                        {trustAnalyzing ? "…" : (trustData ? `${trustData.companyScore}` : "—")}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-white text-2xl font-bold">
-                    {trustAnalyzing ? "—" : product.trustScore}
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Sustainability mini-badge in buy box (only when mode is on) */}
               {showOnProduct && (

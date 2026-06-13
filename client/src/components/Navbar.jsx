@@ -1,8 +1,9 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShoppingCart, Search, MapPin, ChevronDown, Menu, Leaf } from "lucide-react";
+import { ShoppingCart, Search, MapPin, ChevronDown, Menu, Leaf, Heart } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 
 const CATEGORIES = [
@@ -14,6 +15,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, realUser, logout } = useAuth();
   const { itemCount } = useCart();
+  const { wishlist } = useWishlist();
   const { prefs, toggleMode } = useSustainability();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -180,6 +182,22 @@ export default function Navbar() {
           >
             <span className="text-[#CCC] text-[11px]">Returns</span>
             <span className="text-white font-bold text-[13px]">& Orders</span>
+          </Link>
+
+          {/* Wishlist */}
+          <Link
+            to="/wishlist"
+            className="flex items-end gap-1 border border-transparent hover:border-white rounded px-2 py-1 flex-shrink-0"
+          >
+            <div className="relative">
+              <Heart size={28} className="text-white" />
+              {wishlist.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#FF9900] text-[#131921] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none">
+                  {wishlist.length > 9 ? "9+" : wishlist.length}
+                </span>
+              )}
+            </div>
+            <span className="text-white font-bold text-[13px] hidden sm:block">Wishlist</span>
           </Link>
 
           {/* Cart */}

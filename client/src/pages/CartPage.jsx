@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
-import { formatPrice, getTrustColor, API } from "../utils/format.js";
+import { formatPrice, API } from "../utils/format.js";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { getUserSustainabilityScore, getSustainabilityData, getSustainabilityColor } from "../utils/sustainability.js";
 import { Trash2, RefreshCw, ShoppingBag, Clock, Leaf } from "lucide-react";
@@ -86,7 +86,10 @@ export default function CartPage() {
                 </div>
 
                 {items.map((item) => {
-                  const trust = getTrustColor(item.trustScore || 75);
+                  const score     = item.companyScore  ?? item.trustScore  ?? 70;
+                  const status    = item.companyStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
+                  const badgeCls  = status === "VERIFIED" ? "bg-[#067D62] text-white" : status === "FLAGGED" ? "bg-[#CC0C39] text-white" : "bg-[#FF9900] text-[#0F1111]";
+                  const badgeLbl  = status === "VERIFIED" ? "Verified" : status === "FLAGGED" ? "Flagged" : "Mixed";
                   return (
                     <div key={item.id} className="px-5 py-4 border-b border-gray-100 last:border-0 flex gap-4">
                       {/* Image */}
@@ -116,11 +119,9 @@ export default function CartPage() {
                         )}
 
                         {/* TrustLens in cart */}
-                        {item.trustScore && (
-                          <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${trust.bg} ${trust.text} mb-2`}>
-                            🔍 TrustLens: {item.trustScore} · {trust.label}
-                          </div>
-                        )}
+                        <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeCls} mb-2`}>
+                          🔍 TrustLens: {score} · {badgeLbl}
+                        </div>
 
                         <div className="flex items-center gap-4 flex-wrap">
                           {/* Qty selector */}
@@ -186,7 +187,7 @@ export default function CartPage() {
                   This order contains a gift
                 </label>
                 <button
-                  onClick={() => navigate("/login")}
+                  onClick={() => navigate("/checkout")}
                   className="w-full btn-primary py-2.5 rounded-full font-bold text-sm"
                 >
                   Proceed to Buy
