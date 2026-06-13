@@ -29,102 +29,85 @@ router.post("/seller-trust", async (req, res) => {
   const sellerProducts = allProducts.filter((p) => p.soldBy === sellerName);
 
   // Compute fresh (with user returns applied on top of baseline)
-  const { companyScore, status, Rg, Od, Cs, Bv, raw, returnPenalty } =
+  const { companyScore, status, Rg, Rs, Kp, Ri, raw, returnPenalty } =
     computeCompanyScore(product, sellerProducts, userReturns);
 
   // ── Derived display values ─────────────────────────────────────────────
-  const reorderRate = Math.round(Cs * 40 + 5);         // 5–45 %
-  const returnRatePct = Math.round(Rg * 100);
-  const onTime = computeDeliveryRate(product);
-  const sellerYear = product.sellerSince || "2020";
-  const sellerAge = new Date().getFullYear() - parseInt(sellerYear);
-  const estOrders = Math.round(
+  const reorderPct  = Math.round(Ri * 40 + 20);   // seller-rating → 20–60%
+  const keepPct     = Math.round(Kp * 100);         // buyers who kept item
+  const onTime      = computeDeliveryRate(product);
+  const sellerYear  = product.sellerSince || "2020";
+  const sellerAge   = new Date().getFullYear() - parseInt(sellerYear);
+  const estOrders   = Math.round(
     sellerAge * 48000 + (parseFloat(product.soldByRating || 4) - 3) * 25000,
   );
   const ordersLabel = estOrders >= 1_000_000
     ? `${(estOrders / 1_000_000).toFixed(1)}M+`
     : `${Math.round(estOrders / 1000)}k+`;
 
-  // ── 5 signal rows ──────────────────────────────────────────────────────
+  // ── Trust signals — only emit when seller genuinely earns the signal ───
+  // No negative signals ever. If a signal isn't earned, it simply isn't shown.
   const signals = [
-    {
-      key: "reorderRate",
-      icon: "RefreshCw",
-      headline: `${reorderRate}% of buyers reorder from this seller`,
-      subtitle: reorderRate >= 35
-        ? "Strong customer loyalty — buyers keep coming back"
-        : reorderRate >= 20
-          ? "Moderate repeat purchase rate"
-          : "Low customer retention for this seller",
-      status: reorderRate >= 35 ? "good" : reorderRate >= 20 ? "warning" : "bad",
+    // 1. Review score — shown if Rs ≥ 0.65 (review quality is solid)
+    Rs >= 0.65 && {
+      key: "reviews",
+      icon: "Star",
+      headline: `${Math.round(Rs * 100)}% positive review score`,
+      subtitle: Rs >= 0.80
+        ? "Buyers consistently praise this product's quality and accuracy"
+        : "Reviews are broadly positive across verified purchases",
       howWeMeasure:
-        "Share of verified purchasers who bought from this seller again within 12 months. " +
-        "Derived from the product's authenticity score and aggregated review sentiment.",
-      formulaVar: `Cs = ${Cs.toFixed(2)} (Customer Sentiment / Review Authenticity, w3 = 0.80)`,
+        "Derived from the product's review authenticity score — captures genuine buyer " +
+        "sentiment, filters out suspicious patterns, and weighs verified purchases more heavily. " +
+        `Score: Rs = ${Rs.toFixed(2)} (weight 50% of total).`,
     },
-    {
-      key: "brandAuth",
-      icon: "ShieldCheck",
-      headline: Bv === 1.0
-        ? "Verified Authentic Brand"
-        : Bv === 0.75
-          ? "Established Seller"
-          : "Independent Third-Party Seller",
-      subtitle: Bv === 1.0
-        ? "Amazon-verified seller · Brand Registry protected"
-        : Bv === 0.75
-          ? "Reliable seller · No counterfeit complaints on record"
-          : "Not enrolled in Amazon Brand Registry — verify authenticity",
-      status: Bv === 1.0 ? "good" : Bv === 0.75 ? "warning" : "bad",
-      howWeMeasure:
-        "Checks whether the seller is enrolled in Amazon Brand Registry, " +
-        "fulfilled through Amazon's network, and has a sustained high seller rating.",
-      formulaVar: `Bv = ${Bv.toFixed(2)} (Verification Status, w4 = 0.10)`,
-    },
-    {
-      key: "returnRate",
+    // 2. Keep rate — shown if Kp ≥ 0.82 (return rate below ~18%)
+    Kp >= 0.82 && {
+      key: "keepRate",
       icon: "PackageOpen",
-      headline: returnRatePct < 5
-        ? `Under ${Math.max(2, returnRatePct + 1)}% return rate`
-        : `${returnRatePct}% return rate across seller's products`,
-      subtitle: Rg < 0.08
-        ? "Most customers keep this item — low return signals"
-        : Rg < 0.20
-          ? "Return rate within category norms"
-          : "Above-average returns — possible quality or listing issues",
-      status: Rg < 0.08 ? "good" : Rg < 0.20 ? "warning" : "bad",
+      headline: `${keepPct}% of buyers kept their purchase`,
+      subtitle: Kp >= 0.93
+        ? "Buyers receive exactly what's described — very few returns"
+        : "Well within normal return rates for this category",
       howWeMeasure:
-        "Returns inferred from return-signal phrases in verified reviews and the ratio of " +
-        "suspicious reviews (a leading indicator of eventual returns).",
-      formulaVar: `Rg = ${Rg.toFixed(2)} (Global Return Rate, w1 = 0.05)`,
+        "Keep rate is the inverse of the inferred return rate. Returns are inferred from " +
+        "return-signal phrases in verified reviews and suspicious review ratios. " +
+        `Score: Kp = ${Kp.toFixed(2)} (weight 30% of total).`,
     },
-    {
-      key: "onTimeDelivery",
+    // 3. Reorder rate — shown if seller rating ≥ 3.8 (Ri ≥ 0.70)
+    Ri >= 0.70 && {
+      key: "reorders",
+      icon: "RefreshCw",
+      headline: `${reorderPct}% of buyers purchase from this seller again`,
+      subtitle: Ri >= 0.85
+        ? "Strong repeat purchase signal — buyers trust this seller consistently"
+        : "Buyers come back to this seller, showing consistent satisfaction",
+      howWeMeasure:
+        "Reorder index is derived from the seller's star rating, normalised to 0–1. " +
+        "Higher seller ratings strongly predict repeat purchase behaviour. " +
+        `Score: Ri = ${Ri.toFixed(2)} (weight 20% of total).`,
+    },
+    // 4. On-time delivery — supplementary, shown if ≥ 90%
+    onTime >= 90 && {
+      key: "delivery",
       icon: "Truck",
       headline: `${onTime}% on-time delivery`,
-      subtitle: onTime >= 95
-        ? "Fast, reliable shipping every time"
-        : onTime >= 85
-          ? "Generally reliable — occasional delays"
-          : "Some delivery delays reported for this seller",
-      status: onTime >= 95 ? "good" : onTime >= 85 ? "warning" : "bad",
+      subtitle: "Orders consistently arrive by the promised date",
       howWeMeasure:
-        "Orders delivered by the promised date over the last 90 days. " +
-        "Amazon-fulfilled sellers consistently outperform merchant-fulfilled.",
-      formulaVar: `Derived from fulfillment type × seller rating (${product.fulfillment || "Unknown"})`,
+        "Estimated from fulfilment type and seller rating over the last 90 days. " +
+        `Fulfilment method: ${product.fulfillment || "Merchant"}.`,
     },
-    {
-      key: "sellerTenure",
+    // 5. Seller tenure — supplementary, shown if ≥ 3 years
+    sellerAge >= 3 && {
+      key: "tenure",
       icon: "Store",
-      headline: `Trusted seller since ${sellerYear}`,
-      subtitle: `${ordersLabel} orders fulfilled · ${sellerAge} year${sellerAge !== 1 ? "s" : ""} on Amazon`,
-      status: sellerAge >= 5 ? "good" : sellerAge >= 2 ? "warning" : "bad",
+      headline: `${sellerAge}-year seller · ${ordersLabel} orders fulfilled`,
+      subtitle: "Established seller with a long track record on Amazon",
       howWeMeasure:
         "Based on the seller's Amazon account registration date and estimated lifetime " +
-        "fulfilled-order count. Longer tenure correlates with lower dispute rates.",
-      formulaVar: `Seller active for ${sellerAge} year${sellerAge !== 1 ? "s" : ""} (derived)`,
+        "order volume. Tenure correlates strongly with lower dispute rates.",
     },
-  ];
+  ].filter(Boolean);
 
   res.json({
     companyScore,
@@ -133,11 +116,11 @@ router.post("/seller-trust", async (req, res) => {
     productCount: sellerProducts.length,
     signals,
     formula: {
+      Rs: parseFloat(Rs.toFixed(3)),
+      Kp: parseFloat(Kp.toFixed(3)),
+      Ri: parseFloat(Ri.toFixed(3)),
       Rg: parseFloat(Rg.toFixed(3)),
-      Od: parseFloat(Od.toFixed(3)),
-      Cs: parseFloat(Cs.toFixed(3)),
-      Bv,
-      weights: { w1: 0.05, w2: 0.05, w3: 0.80, w4: 0.10 },
+      weights: { Rs: 0.50, Kp: 0.30, Ri: 0.20 },
       raw: parseFloat(raw.toFixed(4)),
       returnPenalty,
     },
