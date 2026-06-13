@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Package, Star, Zap, HelpCircle, ShoppingBag, Gift, List, Smartphone, User, Heart, Clock } from "lucide-react";
-
+import OrdersPage from "./OrdersPage";
 const PAGES = {
   "/orders": {
     Icon: Package,
@@ -95,6 +95,9 @@ const PAGES = {
 
 export default function StubPage() {
   const { pathname } = useLocation();
+  if (pathname === "/orders") {
+  return <OrdersPage />;
+}
   const page = PAGES[pathname] || {
     Icon: Star,
     title: "Coming Soon",
