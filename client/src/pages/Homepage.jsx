@@ -4,7 +4,10 @@ import axios from "axios";
 import { API, formatPrice, getTrustColor } from "../utils/format.js";
 import ProductCard from "../components/ProductCard.jsx";
 import SensePopup from "../components/SensePopup.jsx";
-import { ChevronRight } from "lucide-react";
+import {
+  ChevronRight, Smartphone, Tv, Music2, UtensilsCrossed,
+  Shirt, BookOpen, Dumbbell, ShoppingBasket, Laptop, Sparkles
+} from "lucide-react";
 
 const HERO_SLIDES = [
   {
@@ -28,14 +31,16 @@ const HERO_SLIDES = [
 ];
 
 const CATEGORIES_GRID = [
-  { name: "Mobiles", icon: "📱", query: "mobiles" },
-  { name: "Televisions", icon: "📺", query: "television" },
-  { name: "Audio", icon: "🎵", query: "audio" },
-  { name: "Kitchen", icon: "🍳", query: "kitchen" },
-  { name: "Fashion", icon: "👗", query: "fashion" },
-  { name: "Books", icon: "📚", query: "books" },
-  { name: "Sports", icon: "⚽", query: "sports" },
-  { name: "Grocery", icon: "🛒", query: "grocery" }
+  { name: "Mobiles",     Icon: Smartphone,      query: "mobiles"     },
+  { name: "Televisions", Icon: Tv,              query: "television"  },
+  { name: "Audio",       Icon: Music2,          query: "audio"       },
+  { name: "Kitchen",     Icon: UtensilsCrossed, query: "kitchen"     },
+  { name: "Fashion",     Icon: Shirt,           query: "fashion"     },
+  { name: "Books",       Icon: BookOpen,        query: "books"       },
+  { name: "Sports",      Icon: Dumbbell,        query: "sports"      },
+  { name: "Grocery",     Icon: ShoppingBasket,  query: "grocery"     },
+  { name: "Laptops",     Icon: Laptop,          query: "laptops"     },
+  { name: "Beauty",      Icon: Sparkles,        query: "beauty"      },
 ];
 
 export default function Homepage() {
@@ -97,15 +102,15 @@ export default function Homepage() {
         {/* Categories grid */}
         <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
           <h2 className="font-bold text-[#0F1111] text-lg mb-4">Shop by Category</h2>
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+          <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
             {CATEGORIES_GRID.map((cat) => (
               <button
                 key={cat.name}
                 onClick={() => navigate(`/s?q=${cat.query}`)}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-lg hover:bg-[#EAEDED] transition-colors group"
+                className="flex flex-col items-center gap-2 py-4 px-2 rounded border border-transparent hover:border-[#DDD] hover:bg-[#FAFAFA] transition-all group"
               >
-                <span className="text-2xl">{cat.icon}</span>
-                <span className="text-xs font-medium text-[#0F1111] text-center group-hover:text-[#C7511F]">
+                <cat.Icon size={22} className="text-[#565959] group-hover:text-[#C7511F] transition-colors" strokeWidth={1.5} />
+                <span className="text-[11px] text-[#0F1111] text-center group-hover:text-[#C7511F] group-hover:underline leading-tight">
                   {cat.name}
                 </span>
               </button>

@@ -10,7 +10,7 @@ Built for **Amazon HackOn Season 6**.
 
 Standard Amazon shopping flow (Homepage → Search → Product → Cart), with three features layered on top:
 
-**TrustLens™** — On every product page: a 12-month price history chart that proves whether a "90% off" deal is real, a colour-coded trust score (0–100), a fake discount alert, and a buy-now-or-wait recommendation backed by historical data.
+**TrustLens™** — On every product page: a 12-month price history chart that proves whether a "90% off" deal is real, a colour-coded trust score (0–100), a fake discount alert, and a buy-now-or-wait recommendation backed by historical data. Click the info icon next to any trust score to open the **TrustCard** — a breakdown across 5 dimensions: Review Authenticity, Return Rate, Warranty Claims, Seller Reliability, and Price Stability.
 
 **WitnessPanel™** — Chat with AI personas of verified owners. Not reviews, not customer service — actual people who own the product, responding in character with city-specific context (Bengaluru hard water, Mumbai humidity). Powered by Groq (llama3-70b).
 
@@ -195,10 +195,24 @@ curl -X POST http://localhost:5001/api/auth/login \
 
 ---
 
+## Product Catalogue
+
+236 products across all categories, sourced from two live APIs fetched at server startup:
+
+| Source | Products | Categories |
+|---|---|---|
+| [DummyJSON](https://dummyjson.com/products) | ~190 | Electronics, Fashion, Home & Kitchen, Grocery, Sports, Beauty |
+| [Open Library](https://openlibrary.org/developers/api) | ~44 | Books (Fiction, Mystery, Romance, Sci-Fi, Self Help, Biography, Business, Fantasy, Children's) |
+| Mock data | 8 | Hand-crafted with full TrustLens breakdowns (Sony TV, iPhone, etc.) |
+
+Books use real cover art from `covers.openlibrary.org`. All products have seeded-consistent TrustLens data (same score on every restart).
+
+---
+
 ## Known Limitations
 
 - Filter checkboxes in search results are UI-only (don't actually filter)
 - Cart and orders don't persist to the backend
 - Checkout flow is not implemented — "Proceed to Buy" redirects to login
 - WitnessPanel personas only exist for p001 (Sony TV)
-- All product data is mock — no real Amazon inventory
+- Books and DummyJSON products use generated TrustLens data — only the 8 mock products have hand-written breakdown details
