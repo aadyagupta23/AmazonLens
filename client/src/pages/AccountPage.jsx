@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { Leaf, User, Package, Heart, Clock, Star, RotateCcw, ChevronRight, Pencil, Check, X } from "lucide-react";
-import DnaPanel from "../components/DnaPanel.jsx";
+import SenseMatchPanel from "../components/SenseMatchPanel.jsx";
 
 export default function AccountPage() {
   const { user, realUser, logout, updateProfile } = useAuth();
@@ -115,9 +115,9 @@ export default function AccountPage() {
           </Link>
         ))}
       </div>
-      {/* ── AMAZON LENS DNA ── */}
+      {/* ── AMAZON SENSE ── */}
     <div className="mb-4">
-      <DnaPanel />
+      <SenseMatchPanel />
     </div>
       {/* ── SUSTAINABILITY PREFERENCES ── */}
       <div className="bg-white border border-[#DDD] rounded p-5 mb-4">

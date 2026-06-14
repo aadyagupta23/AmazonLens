@@ -22,7 +22,7 @@ import BundlesPage from "./pages/BundlesPage.jsx";
 import BundleDetailPage from "./pages/BundleDetailPage.jsx";
 import WitnessPortal from "./pages/WitnessPortal.jsx";
 import { WitnessProvider } from "./contexts/WitnessContext.jsx";
-import { DnaProvider } from "./contexts/DnaContext.jsx";
+import { SenseProvider } from "./contexts/SenseContext.jsx";
 import WitnessToast from "./components/WitnessToast.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
 import MyReviewsPage from "./pages/MyReviewsPage.jsx";
@@ -30,7 +30,7 @@ import ReturnsPage from "./pages/ReturnsPage.jsx";
 
 export default function App() {
   return (
-    <DnaProvider>
+    <SenseProvider>
     <WitnessProvider>
     <div className="min-h-screen bg-[#EAEDED]">
       <ScrollToTop />
@@ -70,6 +70,6 @@ export default function App() {
       </Routes>
     </div>
     </WitnessProvider>
-  </DnaProvider>
+  </SenseProvider>
   );
 }
