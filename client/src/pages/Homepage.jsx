@@ -29,7 +29,7 @@ const HERO_SLIDES = [
     title: "Prime Members Save More",
     subtitle: "Exclusive deals on Sony, Samsung, Apple & more",
     cta: "Explore Deals",
-    query: "home theatre setup under 40000",
+    query: "deals",
     badge: "PRIME",
   },
 ];
