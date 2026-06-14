@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { bundles, products } from "../../../server/data/mockData.js";
 import ProductCard from "../components/ProductCard.jsx";
@@ -81,8 +81,6 @@ export default function BundleDetailPage() {
   const { bundleId } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-
-  useEffect(() => { window.scrollTo(0, 0); }, [bundleId]);
 
   // Track which add-ons have been added this session (for button feedback)
   const [addedAddons, setAddedAddons] = useState({});

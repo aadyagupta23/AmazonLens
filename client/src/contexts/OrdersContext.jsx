@@ -41,8 +41,8 @@ export function OrdersProvider({ children }) {
     save(updated);
   };
 
-  const returnItem = (orderId, itemId, reason) =>
-    _patchItem(orderId, itemId, { returnStatus: "Return Requested", returnReason: reason });
+  const returnItem = (orderId, itemId) =>
+    _patchItem(orderId, itemId, { returnStatus: "Returned", returnedAt: new Date().toISOString() });
 
   const addReview = (orderId, itemId, review) =>
     _patchItem(orderId, itemId, { review });
