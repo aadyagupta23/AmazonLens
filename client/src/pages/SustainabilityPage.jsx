@@ -34,6 +34,59 @@ const ACHIEVEMENTS = [
   { emoji: "⭐", title: "Carbon Champion",   desc: "5+ eco-certified purchases (score ≥ 80)",       threshold: (_, _2, _3, certCount) => certCount >= 5 },
 ];
 
+function getSustainabilityPersonality(score, ecoCount, certCount) {
+  if (score >= 85 && certCount >= 5) {
+    return {
+      title: "Eco Champion 🌍",
+      description:
+        "You consistently choose sustainable products and environmentally responsible brands.",
+    };
+  }
+
+  if (score >= 70) {
+    return {
+      title: "Conscious Shopper 🌱",
+      description:
+        "You regularly prefer eco-friendly products and recyclable packaging.",
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      title: "Balanced Buyer ♻️",
+      description:
+        "You sometimes prioritize sustainability while balancing price and convenience.",
+    };
+  }
+
+  return {
+    title: "Opportunity Explorer 🌿",
+    description:
+      "You haven't focused heavily on sustainability yet, but there are easy improvements available.",
+  };
+}
+
+function generateInsight({
+  score,
+  ecoCount,
+  certCount,
+  sustainablePackagingPct,
+}) {
+  if (score >= 80) {
+    return "Your purchases are significantly more sustainable than the average shopper.";
+  }
+
+  if (sustainablePackagingPct < 50) {
+    return "Most improvement opportunities come from choosing products with recyclable packaging.";
+  }
+
+  if (certCount < 3) {
+    return "Adding more eco-certified products would quickly improve your sustainability score.";
+  }
+
+  return "Your sustainability habits are steadily improving across multiple categories.";
+}
+
 export default function SustainabilityPage() {
   const { prefs, toggleMode } = useSustainability();
 
@@ -70,6 +123,24 @@ export default function SustainabilityPage() {
     allItems.length > 0
       ? Math.round((allItems.filter((i) => getSustainabilityData(i.id).recyclability >= 70).length / allItems.length) * 100)
       : 0;
+
+  const personality = getSustainabilityPersonality(
+  userScore || 0,
+  ecoCount,
+  certCount
+);
+
+const insight = generateInsight({
+  score: userScore || 0,
+  ecoCount,
+  certCount,
+  sustainablePackagingPct,
+});
+
+const improvementTarget =
+  userScore >= 85
+    ? null
+    : Math.max(1, Math.ceil((85 - userScore) / 5));
 
   const stats = [
     { Icon: Recycle, label: "Eco-Friendly Purchases", value: String(ecoCount),                   sub: "score ≥ 70",              color: "text-[#1B5E20]", bg: "bg-green-50"  },
@@ -140,31 +211,90 @@ export default function SustainabilityPage() {
         </div>
       </div>
 
-      {/* Monthly trend — only show if there's data */}
-      {monthlyTrend.length > 0 && (
-        <div className="bg-white border border-[#DDD] rounded p-5 mb-4">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={16} className="text-[#1B5E20]" />
-            <h2 className="font-bold text-[#0F1111] text-base">Monthly Eco Score Trend</h2>
-            <span className="text-xs text-[#565959]">Avg sustainability score per month ordered</span>
+      {/* Monthly trend — only show if there's data*/}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-xl p-5 mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Leaf size={16} className="text-green-600" />
+        <span className="text-xs font-bold uppercase text-green-700">
+          Sustainability Personality
+        </span>
+      </div>
+
+      <h2 className="text-xl font-bold text-[#0F1111]">
+        {personality.title}
+      </h2>
+
+      <p className="text-sm text-[#565959] mt-2">
+        {personality.description}
+      </p>
+    </div>
+
+{monthlyTrend.length > 0 && (
+  <div className="bg-white border border-[#DDD] rounded-xl p-5 mb-4">
+
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h2 className="font-bold text-[#0F1111]">
+          Sustainability Evolution
+        </h2>
+
+        <p className="text-xs text-[#565959]">
+          Based on your real purchase history
+        </p>
+      </div>
+
+      <div className="text-sm font-bold text-green-700">
+        Current Score: {userScore}
+      </div>
+    </div>
+
+    <div className="space-y-3">
+      {monthlyTrend.map(({ month, score }) => (
+        <div
+          key={month}
+          className="bg-[#FAFAFA] rounded-lg p-3"
+        >
+          <div className="flex justify-between mb-1">
+            <span className="text-sm font-medium">
+              {month}
+            </span>
+
+            <span className="font-bold text-green-700">
+              {score}
+            </span>
           </div>
-          <div className="flex items-end gap-2 h-20">
-            {monthlyTrend.map(({ month, score }, idx) => (
-              <div key={month + idx} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[10px] text-[#565959] font-medium">{score}</span>
-                <div
-                  className="w-full rounded-sm"
-                  style={{
-                    height: `${(score / maxTrend) * 56}px`,
-                    backgroundColor: idx === monthlyTrend.length - 1 ? "#1B5E20" : "#C8E6C9",
-                  }}
-                />
-                <span className="text-[10px] text-[#565959]">{month}</span>
-              </div>
-            ))}
+
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-green-600 rounded-full"
+              style={{ width: `${score}%` }}
+            />
           </div>
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
+
+<div className="bg-[#FFF8E7] border border-[#FFD77A] rounded-xl p-5 mb-4">
+
+  <h2 className="font-bold text-[#0F1111] mb-2">
+    Amazon Lens Insight
+  </h2>
+
+  <p className="text-sm text-[#565959]">
+    {insight}
+  </p>
+
+  {improvementTarget && (
+    <p className="text-sm font-medium text-[#B7791F] mt-3">
+      Adding roughly {improvementTarget} more eco-certified purchases
+      could push your score closer to 85+.
+    </p>
+  )}
+</div>
+      
+
 
       {/* Top eco purchases — only from real orders */}
       {ecoItems.length > 0 && (
@@ -211,7 +341,7 @@ export default function SustainabilityPage() {
                 <div className="text-2xl mb-1">{emoji}</div>
                 <p className="text-xs font-bold text-[#0F1111]">{title}</p>
                 <p className="text-[10px] text-[#565959] mt-0.5 leading-tight">{desc}</p>
-                {!unlocked && <p className="text-[10px] text-[#999] mt-1">Locked</p>}
+                {!unlocked && <p className="text-[10px] text-[#999] mt-1">Progress available</p>}
               </div>
             );
           })}
