@@ -19,12 +19,13 @@ router.get("/:productId", (req, res) => {
 });
 
 router.post("/chat", async (req, res) => {
-  const { productId, witnessId, message, history = [] } = req.body;
+  const { productId, witnessId, message, history = [], witnessContext } = req.body;
 
   const product = products.find((p) => p.id === productId);
   if (!product) return res.status(404).json({ reply: FALLBACK_RESPONSES.default });
 
-  const witness = product.witnesses?.find((w) => w.id === witnessId);
+  // witnessContext is sent when a live witness falls back to AI
+  const witness = witnessContext || product.witnesses?.find((w) => w.id === witnessId);
   if (!witness) return res.status(404).json({ reply: FALLBACK_RESPONSES.default });
 
   if (!groq) {
@@ -33,7 +34,7 @@ router.post("/chat", async (req, res) => {
 
   const systemPrompt = `You are ${witness.name}, a real Amazon customer from ${witness.city}, India.
 You purchased the ${product.name} ${witness.monthsOwned} months ago.
-You live with a family of ${witness.familySize}.
+You live with a family of ${witness.familySize || 3}.
 You ${witness.wouldBuyAgain ? "would" : "would NOT"} buy this product again.
 Purchase price you paid: ₹${product.price.toLocaleString("en-IN")}.
 

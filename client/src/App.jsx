@@ -19,12 +19,17 @@ import StubPage from "./pages/StubPage.jsx";
 import AmazonLensAssistant from "./components/AmazonLensAssistant.jsx";
 import BundlesPage from "./pages/BundlesPage.jsx";
 import BundleDetailPage from "./pages/BundleDetailPage.jsx";
+import WitnessPortal from "./pages/WitnessPortal.jsx";
+import { WitnessProvider } from "./contexts/WitnessContext.jsx";
+import WitnessToast from "./components/WitnessToast.jsx";
 
 export default function App() {
   return (
+    <WitnessProvider>
     <div className="min-h-screen bg-[#EAEDED]">
       <Navbar />
       <AmazonLensAssistant />
+      <WitnessToast />
       <Routes>
         <Route path="/" element={<Homepage />} />
         <Route path="/s" element={<SearchResults />} />
@@ -50,9 +55,11 @@ export default function App() {
         <Route path="/registry" element={<StubPage />} />
         <Route path="/amazon-pay" element={<StubPage />} />
         <Route path="/minitv" element={<StubPage />} />
+        <Route path="/witness" element={<WitnessPortal />} />
         <Route path="/history" element={<StubPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
+    </WitnessProvider>
   );
 }

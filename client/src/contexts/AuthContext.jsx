@@ -54,10 +54,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(SESSION_KEY);
   };
 
-  const effectiveUser = user || { name: "Arjun Kumar", email: "arjun@example.com" };
+  const updateProfile = (patch) => {
+    const updated = { ...user, ...patch };
+    setUser(updated);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+  };
+
+  const effectiveUser = user || { name: "Arjun Kumar", email: "arjun@example.com", city: "" };
 
   return (
-    <AuthContext.Provider value={{ user: effectiveUser, realUser: user, token: null, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user: effectiveUser, realUser: user, token: null, login, signup, logout, updateProfile, loading }}>
       {children}
     </AuthContext.Provider>
   );

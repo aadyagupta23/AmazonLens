@@ -1,17 +1,85 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
-import { Leaf, User, Package, Heart, Clock, ChevronRight } from "lucide-react";
+import { Leaf, User, Package, Heart, Clock, ChevronRight, Pencil, Check, X } from "lucide-react";
 
 export default function AccountPage() {
-  const { user, realUser, logout } = useAuth();
+  const { user, realUser, logout, updateProfile } = useAuth();
   const { prefs, updatePref, toggleMode } = useSustainability();
   const navigate = useNavigate();
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({ name: user.name, city: user.city || "", phone: user.phone || "" });
+
+  const saveProfile = () => {
+    updateProfile({ name: profileDraft.name.trim(), city: profileDraft.city.trim(), phone: profileDraft.phone.trim() });
+    setEditingProfile(false);
+  };
 
   return (
     <div className="max-w-[900px] mx-auto px-4 py-8">
       <h1 className="text-2xl font-medium text-[#0F1111] mb-6">Your Account</h1>
+
+      {/* ── PROFILE INFO ── */}
+      <div className="bg-white border border-[#DDD] rounded p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <User size={18} className="text-[#565959]" />
+            <h2 className="font-bold text-[#0F1111] text-base">Profile Information</h2>
+          </div>
+          {!editingProfile ? (
+            <button
+              onClick={() => { setProfileDraft({ name: user.name, city: user.city || "", phone: user.phone || "" }); setEditingProfile(true); }}
+              className="flex items-center gap-1.5 text-sm text-[#007185] hover:underline"
+            >
+              <Pencil size={13} /> Edit
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button onClick={saveProfile} className="flex items-center gap-1 text-xs bg-[#131921] text-white px-3 py-1.5 rounded-full hover:bg-[#232F3E]">
+                <Check size={12} /> Save
+              </button>
+              <button onClick={() => setEditingProfile(false)} className="text-[#999] hover:text-[#CC0C39]">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {!editingProfile ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { label: "Full name",    value: user.name },
+              { label: "City",         value: user.city  || <span className="text-[#CC0C39] text-xs">Not set — required for WitnessPanel</span> },
+              { label: "Phone",        value: user.phone || <span className="text-[#999] text-xs">Not set</span> },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <p className="text-xs text-[#565959] mb-0.5">{label}</p>
+                <p className="text-sm font-medium text-[#0F1111]">{value}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { label: "Full name", key: "name",  placeholder: "Your full name" },
+              { label: "City",      key: "city",  placeholder: "e.g. Bengaluru" },
+              { label: "Phone",     key: "phone", placeholder: "+91 98765 43210" },
+            ].map(({ label, key, placeholder }) => (
+              <div key={key}>
+                <label className="block text-xs text-[#565959] mb-1">{label}</label>
+                <input
+                  type="text"
+                  value={profileDraft[key]}
+                  onChange={(e) => setProfileDraft((d) => ({ ...d, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#007185]"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {/* Account links */}
