@@ -1,55 +1,72 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Leaf } from "lucide-react";
 import InsightCard from "./InsightCard.jsx";
-import { INSIGHTS_BASE, INSIGHTS_SUSTAINABILITY } from "./insightsData.js";
+import { computeInsights } from "./insightsData.js";
 import { useSustainability } from "../../contexts/SustainabilityContext.jsx";
+import { getSustainabilityData, getUserSustainabilityScore } from "../../utils/sustainability.js";
 
-/**
- * ShoppingInsights — personalised analytics layer at the bottom of the homepage.
- *
- * When Sustainability Mode is on, two sustainability insight cards are appended
- * and a subtle "Sustainability Mode active" label appears in the header.
- *
- * Props (all optional):
- *   fetchInsights – async () => insight[]  hook in a live API when ready
- *   title         – string
- */
-export default function ShoppingInsights({
-  fetchInsights = null,
-  title = "Your Shopping Insights",
-}) {
+function computeSustainabilityInsights() {
+  let orders = [];
+  try { orders = JSON.parse(localStorage.getItem("amz_orders") || "[]"); } catch {}
+
+  const allItems = orders.flatMap((o) => o.items || []);
+  const userScore = getUserSustainabilityScore(allItems);
+
+  if (userScore === null) return [];
+
+  const ecoItems = allItems.filter((i) => getSustainabilityData(i.id).score >= 70);
+  const seen = new Set();
+  const uniqueEco = ecoItems.filter((i) => {
+    if (seen.has(i.id)) return false;
+    seen.add(i.id);
+    return true;
+  });
+
+  return [
+    {
+      id: "sustainability_score",
+      type: "sustainability_score",
+      title: "Your sustainability score",
+      value: `${userScore}/100`,
+      subtext: `Based on ${allItems.length} item${allItems.length !== 1 ? "s" : ""} purchased`,
+      delta: null,
+      deltaLabel: null,
+      cta: { label: "View dashboard", href: "/sustainability" },
+      icon: "leaf",
+      accentColor: "green",
+    },
+    {
+      id: "sustainability_recyclable",
+      type: "sustainability_recyclable",
+      title: "Eco-friendly purchases",
+      value: `${uniqueEco.length} product${uniqueEco.length !== 1 ? "s" : ""}`,
+      subtext:
+        allItems.length > 0
+          ? `${Math.round((uniqueEco.length / allItems.length) * 100)}% of your purchases`
+          : "No purchases yet",
+      delta: null,
+      deltaLabel: null,
+      cta: { label: "Shop more eco", href: "/s?q=eco+certified" },
+      icon: "leaf",
+      accentColor: "green",
+    },
+  ];
+}
+
+export default function ShoppingInsights({ title = "Your Shopping Insights" }) {
   const { prefs } = useSustainability();
-  const [baseInsights, setBaseInsights] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      try {
-        const data = fetchInsights ? await fetchInsights() : INSIGHTS_BASE;
-        if (!cancelled) setBaseInsights(data);
-      } catch {
-        if (!cancelled) setBaseInsights(INSIGHTS_BASE);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [fetchInsights]);
-
-  // Merge sustainability insights when mode is on
   const insights = useMemo(() => {
-    if (prefs.enabled) return [...baseInsights, ...INSIGHTS_SUSTAINABILITY];
-    return baseInsights;
-  }, [baseInsights, prefs.enabled]);
+    const base = computeInsights();
+    const sus = prefs.enabled ? computeSustainabilityInsights() : [];
+    return [...base, ...sus];
+  }, [prefs.enabled]);
 
-  // Tailwind requires static class names — use a lookup
+  if (insights.length === 0) return null;
+
   const COL_MAP = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-4" };
   const lgCols = COL_MAP[insights.length] || "lg:grid-cols-5";
-  const gridClass = `grid grid-cols-2 sm:grid-cols-3 ${lgCols} gap-3`;
 
   return (
     <div className="bg-white rounded shadow-sm p-4 mb-4">
@@ -63,7 +80,7 @@ export default function ShoppingInsights({
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-[#565959]">Based on your activity · Updated daily</span>
+          <span className="text-xs text-[#565959]">Based on your activity</span>
           {prefs.enabled && (
             <Link to="/sustainability" className="text-xs text-[#007185] hover:underline flex-shrink-0">
               Dashboard →
@@ -72,19 +89,11 @@ export default function ShoppingInsights({
         </div>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="border border-[#DDD] rounded h-24 animate-pulse bg-gray-50" />
-          ))}
-        </div>
-      ) : (
-        <div className={gridClass}>
-          {insights.map((insight) => (
-            <InsightCard key={insight.id} insight={insight} />
-          ))}
-        </div>
-      )}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${lgCols} gap-3`}>
+        {insights.map((insight) => (
+          <InsightCard key={insight.id} insight={insight} />
+        ))}
+      </div>
     </div>
   );
 }

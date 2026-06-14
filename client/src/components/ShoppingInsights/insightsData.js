@@ -1,88 +1,123 @@
 /**
- * Mock data for the ShoppingInsights section.
- * Shape is stable — swap fetchInsights prop for a live API when ready.
- *
- * Sustainability insights (type: "sustainability_*") are filtered in/out
- * by ShoppingInsights based on whether Sustainability Mode is enabled.
+ * Computes shopping insights from real localStorage data.
+ * Reads amz_orders and amz_wishlist — no hardcoded values.
  */
+export function computeInsights() {
+  let orders = [];
+  let wishlist = [];
+  try { orders = JSON.parse(localStorage.getItem("amz_orders") || "[]"); } catch {}
+  try { wishlist = JSON.parse(localStorage.getItem("amz_wishlist") || "[]"); } catch {}
 
-export const INSIGHTS_BASE = [
-  {
-    id: "money_saved",
-    type: "money_saved",
-    title: "Saved via price tracking",
-    value: "₹4,280",
-    subtext: "Across 8 purchases this month",
-    delta: +22,
-    deltaLabel: "vs last month",
-    cta: { label: "View breakdown", href: "/orders" },
-    icon: "piggy_bank",
-    accentColor: "green",
-  },
-  {
-    id: "price_drop",
-    type: "price_drop",
-    title: "Wishlist price drops",
-    value: "3 items dropped",
-    subtext: "boAt Airdopes · Sony headphones · Kindle",
-    delta: -18,
-    deltaLabel: "avg drop",
-    cta: { label: "See wishlist deals", href: "/wishlist" },
-    icon: "tag",
-    accentColor: "red",
-  },
-  {
-    id: "spending_trend",
-    type: "spending_trend",
-    title: "Electronics spend up",
-    value: "+12% this month",
-    subtext: "₹14,200 spent · Budget avg: ₹12,650",
-    delta: +12,
-    deltaLabel: "vs your average",
-    cta: { label: "Review spending", href: "/orders" },
-    icon: "bar_chart",
-    accentColor: "blue",
-  },
-  {
-    id: "upcoming_purchase",
-    type: "upcoming_purchase",
-    title: "Predicted reorder",
-    value: "Power bank likely needed",
-    subtext: "Based on usage pattern · Est. in ~2 weeks",
-    delta: null,
-    deltaLabel: null,
-    cta: { label: "Browse power banks", href: "/s?q=power+bank" },
-    icon: "refresh",
-    accentColor: "orange",
-  },
-];
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+  const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+  const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
 
-export const INSIGHTS_SUSTAINABILITY = [
-  {
-    id: "sustainability_score",
-    type: "sustainability_score",
-    title: "Your sustainability score",
-    value: "78/100",
-    subtext: "Better than 68% of shoppers",
-    delta: null,
-    deltaLabel: null,
-    cta: { label: "View dashboard", href: "/sustainability" },
-    icon: "leaf",
-    accentColor: "green",
-  },
-  {
-    id: "sustainability_recyclable",
-    type: "sustainability_recyclable",
-    title: "Recyclable purchases",
-    value: "12 products",
-    subtext: "This month · 73% of total",
-    delta: null,
-    deltaLabel: null,
-    cta: { label: "Shop more", href: "/s?q=eco+certified" },
-    icon: "leaf",
-    accentColor: "green",
-  },
-];
+  const thisMonthOrders = orders.filter((o) => {
+    const d = new Date(o.placedAt);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  });
+  const lastMonthOrders = orders.filter((o) => {
+    const d = new Date(o.placedAt);
+    return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+  });
 
-// Default export — base insights only (sustainability added dynamically)
-export const INSIGHTS_MOCK = INSIGHTS_BASE;
+  const thisMonthSpent = thisMonthOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const lastMonthSpent = lastMonthOrders.reduce((s, o) => s + (o.total || 0), 0);
+
+  // Total saved = sum of discounts across all orders
+  const allOrderItems = orders.flatMap((o) => o.items || []);
+  const totalSaved = allOrderItems.reduce((s, i) => {
+    if (i.originalPrice && i.originalPrice > i.price) {
+      return s + (i.originalPrice - i.price) * (i.qty || 1);
+    }
+    return s;
+  }, 0);
+
+  // Wishlist items that have dropped below original price
+  const priceDropItems = wishlist.filter(
+    (p) => p.originalPrice && p.originalPrice > p.price
+  );
+
+  const insights = [];
+
+  if (totalSaved > 0) {
+    insights.push({
+      id: "money_saved",
+      type: "money_saved",
+      title: "Saved on purchases",
+      value: `₹${Math.round(totalSaved).toLocaleString("en-IN")}`,
+      subtext: `Across ${allOrderItems.length} item${allOrderItems.length !== 1 ? "s" : ""} ordered`,
+      delta: null,
+      deltaLabel: null,
+      cta: { label: "View orders", href: "/orders" },
+      icon: "piggy_bank",
+      accentColor: "green",
+    });
+  }
+
+  if (priceDropItems.length > 0) {
+    const avgDropPct = Math.round(
+      priceDropItems.reduce(
+        (s, p) => s + ((p.originalPrice - p.price) / p.originalPrice) * 100,
+        0
+      ) / priceDropItems.length
+    );
+    const names = priceDropItems
+      .slice(0, 2)
+      .map((p) => (p.name || "").split(" ").slice(0, 3).join(" "))
+      .join(" · ");
+    insights.push({
+      id: "price_drop",
+      type: "price_drop",
+      title: "Wishlist price drops",
+      value: `${priceDropItems.length} item${priceDropItems.length !== 1 ? "s" : ""} dropped`,
+      subtext: names || "Check your wishlist",
+      delta: -avgDropPct,
+      deltaLabel: "avg drop",
+      cta: { label: "See wishlist deals", href: "/wishlist" },
+      icon: "tag",
+      accentColor: "red",
+    });
+  }
+
+  if (thisMonthSpent > 0) {
+    const delta =
+      lastMonthSpent > 0
+        ? Math.round(((thisMonthSpent - lastMonthSpent) / lastMonthSpent) * 100)
+        : null;
+    insights.push({
+      id: "spending_trend",
+      type: "spending_trend",
+      title: "This month's spending",
+      value: `₹${Math.round(thisMonthSpent).toLocaleString("en-IN")}`,
+      subtext:
+        delta !== null
+          ? `${delta >= 0 ? "+" : ""}${delta}% vs ₹${Math.round(lastMonthSpent).toLocaleString("en-IN")} last month`
+          : `${thisMonthOrders.length} order${thisMonthOrders.length !== 1 ? "s" : ""} this month`,
+      delta,
+      deltaLabel: "vs last month",
+      cta: { label: "Review spending", href: "/orders" },
+      icon: "bar_chart",
+      accentColor: delta !== null && delta > 0 ? "blue" : "green",
+    });
+  }
+
+  if (orders.length > 0) {
+    insights.push({
+      id: "total_orders",
+      type: "total_orders",
+      title: "Total orders placed",
+      value: `${orders.length} order${orders.length !== 1 ? "s" : ""}`,
+      subtext: `${allOrderItems.length} item${allOrderItems.length !== 1 ? "s" : ""} purchased overall`,
+      delta: null,
+      deltaLabel: null,
+      cta: { label: "View all orders", href: "/orders" },
+      icon: "refresh",
+      accentColor: "orange",
+    });
+  }
+
+  return insights;
+}

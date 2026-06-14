@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import ScrollToTop from "./components/ScrollToTop.jsx";
 import Navbar from "./components/Navbar.jsx";
 import Homepage from "./pages/Homepage.jsx";
 import SearchResults from "./pages/SearchResults.jsx";
@@ -25,12 +26,14 @@ import { DnaProvider } from "./contexts/DnaContext.jsx";
 import WitnessToast from "./components/WitnessToast.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
 import MyReviewsPage from "./pages/MyReviewsPage.jsx";
+import ReturnsPage from "./pages/ReturnsPage.jsx";
 
 export default function App() {
   return (
     <DnaProvider>
     <WitnessProvider>
     <div className="min-h-screen bg-[#EAEDED]">
+      <ScrollToTop />
       <Navbar />
       <AmazonLensAssistant />
       <WitnessToast />
@@ -62,6 +65,7 @@ export default function App() {
         <Route path="/witness" element={<WitnessPortal />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/my-reviews" element={<MyReviewsPage />} />
+        <Route path="/returns" element={<ReturnsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

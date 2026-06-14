@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import {
   Package, Leaf, TrendingDown, ChevronRight,
-  Users, ThumbsUp, ThumbsDown, Gift, Zap, Star, ShoppingBag, MapPin, X,
+  Users, ThumbsUp, ThumbsDown, Gift, Zap, Star, ShoppingBag, MapPin, X, RotateCcw,
 } from "lucide-react";
 import { useOrders } from "../contexts/OrdersContext.jsx";
 import { useWitness } from "../contexts/WitnessContext.jsx";
@@ -208,23 +208,26 @@ function InlineReviewForm({ item, user, onDone }) {
   );
 }
 
+
 export default function OrdersPage() {
-  const { orders } = useOrders();
+  const { orders, returnItem } = useOrders();
   const { witnessInfo } = useWitness();
   const { user } = useAuth();
   const [expandedWitness, setExpandedWitness] = useState(null);
   const [expandedReview, setExpandedReview] = useState(null);
   const [expandedDetails, setExpandedDetails] = useState(null);
 
-  // Flatten all orders into individual item rows
+  // Flatten all orders into individual item rows, excluding returned items
   const orderItems = orders.flatMap((order) =>
-    order.items.map((item) => ({
-      ...item,
-      orderId: order.id,
-      placedAt: order.placedAt,
-      status: order.status,
-      address: order.address,
-    }))
+    order.items
+      .filter((item) => !item.returnStatus)
+      .map((item) => ({
+        ...item,
+        orderId: order.id,
+        placedAt: order.placedAt,
+        status: order.status,
+        address: order.address,
+      }))
   );
 
   // ── Empty state ───────────────────────────────────────────────────────────
@@ -247,6 +250,59 @@ export default function OrdersPage() {
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-6">
       <h1 className="text-3xl font-bold text-[#0F1111] mb-6">Your Orders</h1>
+
+      {/* Impact Summary */}
+      <div className="bg-white border rounded-lg shadow-sm p-5 mb-6">
+        <h2 className="text-xl font-bold mb-4">Shopping Impact Summary</h2>
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="bg-[#F7F8F8] rounded p-4">
+            <div className="text-3xl font-bold">{orderItems.length}</div>
+            <div className="text-sm text-[#565959]">Products Purchased</div>
+          </div>
+          <div className="bg-[#F7F8F8] rounded p-4">
+            <div className="text-3xl font-bold">
+              {orderItems.length ? Math.round(orderItems.reduce((s, i) => s + (i.trustScore ?? 70), 0) / orderItems.length) : 0}
+            </div>
+            <div className="text-sm text-[#565959]">Avg Trust Score</div>
+          </div>
+          <div className="bg-[#F7F8F8] rounded p-4">
+            <div className="text-3xl font-bold">{orders.length}</div>
+            <div className="text-sm text-[#565959]">Orders Placed</div>
+          </div>
+          <div className="bg-[#F7F8F8] rounded p-4">
+            <div className="text-3xl font-bold">
+              {formatPrice(orderItems.reduce((s, i) => s + i.price * i.qty, 0))}
+            </div>
+            <div className="text-sm text-[#565959]">Total Spent</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Witness incentive card — once, not per product */}
+      <div className="mb-5 rounded-xl border border-[#007185]/30 bg-[#f0fafa] p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Users size={14} className="text-[#007185]" />
+              <span className="text-sm font-bold text-[#0F1111]">Become a Witness™</span>
+            </div>
+            <p className="text-xs text-[#565959] mb-2">
+              You own it. Help shoppers decide — and get rewarded. Click "Be a Witness" on any product below.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">
+                <Gift size={10} /> ₹50 Amazon Pay cashback
+              </span>
+              <span className="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">
+                <Zap size={10} /> Early sale access
+              </span>
+              <span className="flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
+                <Star size={10} /> Witness score badge
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-5">
         {orderItems.map((item, idx) => {
@@ -354,22 +410,31 @@ export default function OrdersPage() {
                     >
                       View Details
                     </button>
-                    {witnessInfo?.productId !== item.id && (
+                    <button
+                      onClick={() => setExpandedWitness(expandedWitness === key ? null : key)}
+                      className={`flex items-center gap-1.5 border border-[#007185] bg-[#f0fafa] text-[#007185] px-5 py-2 rounded text-sm font-semibold transition-colors ${expandedWitness === key ? "bg-[#007185] text-white" : "hover:bg-[#007185] hover:text-white"}`}
+                    >
+                      <Users size={13} /> Be a Witness
+                    </button>
+                    {!item.returnStatus && (
                       <button
-                        onClick={() => setExpandedWitness(
-                          expandedWitness === key ? null : key
-                        )}
-                        className="flex items-center gap-2 border-2 border-[#007185] text-[#007185] hover:bg-[#007185] hover:text-white px-5 py-2 rounded font-semibold text-sm transition-colors"
+                        onClick={() => returnItem(item.orderId, item.id)}
+                        className="flex items-center gap-1.5 border border-[#DDD] hover:bg-[#FFF8F0] hover:border-orange-300 hover:text-orange-700 text-[#565959] px-5 py-2 rounded text-sm font-semibold transition-colors"
                       >
-                        <Users size={15} /> Be a Witness
+                        <RotateCcw size={13} /> Return
                       </button>
                     )}
                   </div>
+
+                  {expandedWitness === key && (
+                    <WitnessSignup item={item} onDone={() => setExpandedWitness(null)} />
+                  )}
 
                   {/* Write Review inline form */}
                   {expandedReview === key && (
                     <InlineReviewForm item={item} user={user} onDone={() => setExpandedReview(null)} />
                   )}
+
 
                   {/* View Details inline panel */}
                   {expandedDetails === key && (
@@ -417,44 +482,23 @@ export default function OrdersPage() {
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Witness incentive card */}
-                  {expandedWitness !== key && witnessInfo?.productId !== item.id && (
-                    <div
-                      className="mt-4 rounded-xl border border-[#007185]/30 bg-gradient-to-r from-[#f0fafa] to-white p-4 cursor-pointer hover:border-[#007185] transition-colors"
-                      onClick={() => setExpandedWitness(key)}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Users size={14} className="text-[#007185]" />
-                            <span className="text-sm font-bold text-[#0F1111]">Become a Witness™</span>
-                          </div>
-                          <p className="text-xs text-[#565959] mb-2">
-                            You own this. Help shoppers decide — and get rewarded.
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <span className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">
-                              <Gift size={10} /> ₹50 Amazon Pay cashback
-                            </span>
-                            <span className="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">
-                              <Zap size={10} /> Early sale access
-                            </span>
-                            <span className="flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
-                              <Star size={10} /> Witness score badge
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronRight size={18} className="text-[#007185] flex-shrink-0 mt-1" />
+                      <div className="mt-3 pt-3 border-t border-[#007185]/20 flex gap-4">
+                        <Link
+                          to={`/dp/${item.id}`}
+                          className="text-sm text-[#007185] hover:underline font-medium"
+                        >
+                          View Product →
+                        </Link>
+                        <Link
+                          to="/returns"
+                          className="text-sm text-[#565959] hover:underline"
+                        >
+                          View Returns →
+                        </Link>
                       </div>
                     </div>
                   )}
 
-                  {expandedWitness === key && (
-                    <WitnessSignup item={item} onDone={() => setExpandedWitness(null)} />
-                  )}
                 </div>
               </div>
             </div>
@@ -462,32 +506,6 @@ export default function OrdersPage() {
         })}
       </div>
 
-      {/* Impact Summary */}
-      <div className="bg-white border rounded-lg shadow-sm p-5 mt-6">
-        <h2 className="text-xl font-bold mb-4">Shopping Impact Summary</h2>
-        <div className="grid md:grid-cols-4 gap-4">
-          <div className="bg-[#F7F8F8] rounded p-4">
-            <div className="text-3xl font-bold">{orderItems.length}</div>
-            <div className="text-sm text-[#565959]">Products Purchased</div>
-          </div>
-          <div className="bg-[#F7F8F8] rounded p-4">
-            <div className="text-3xl font-bold">
-              {orderItems.length ? Math.round(orderItems.reduce((s, i) => s + (i.trustScore ?? 70), 0) / orderItems.length) : 0}
-            </div>
-            <div className="text-sm text-[#565959]">Avg Trust Score</div>
-          </div>
-          <div className="bg-[#F7F8F8] rounded p-4">
-            <div className="text-3xl font-bold">
-              {formatPrice(orderItems.reduce((s, i) => s + Math.max(0, (i.originalPrice ?? i.price) - i.price) * i.qty, 0))}
-            </div>
-            <div className="text-sm text-[#565959]">Total Saved</div>
-          </div>
-          <div className="bg-[#F7F8F8] rounded p-4">
-            <div className="text-3xl font-bold">{orders.length}</div>
-            <div className="text-sm text-[#565959]">Orders Placed</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

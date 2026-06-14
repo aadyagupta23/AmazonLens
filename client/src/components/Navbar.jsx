@@ -257,14 +257,27 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Returns & Orders */}
-          <Link
-            to="/orders"
-            className="hidden md:flex flex-col border border-transparent hover:border-white rounded px-1 py-1 flex-shrink-0"
-          >
-            <span className="text-[#CCC] text-[11px]">Returns</span>
-            <span className="text-white font-bold text-[13px]">& Orders</span>
-          </Link>
+          {/* Returns & Orders dropdown */}
+          <div className="hidden md:block relative group flex-shrink-0">
+            <button className="flex flex-col border border-transparent group-hover:border-white rounded px-1 py-1">
+              <span className="text-[#CCC] text-[11px]">Returns</span>
+              <span className="text-white font-bold text-[13px]">& Orders</span>
+            </button>
+            <div className="absolute top-full left-0 mt-1 w-40 bg-white rounded shadow-lg border border-[#DDD] py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
+              <Link
+                to="/orders"
+                className="block px-4 py-2.5 text-sm text-[#0F1111] hover:bg-[#F7F8F8] font-medium"
+              >
+                Your Orders
+              </Link>
+              <Link
+                to="/returns"
+                className="block px-4 py-2.5 text-sm text-[#0F1111] hover:bg-[#F7F8F8] font-medium"
+              >
+                Your Returns
+              </Link>
+            </div>
+          </div>
 
           {/* Wishlist */}
           <Link
