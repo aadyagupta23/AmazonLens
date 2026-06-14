@@ -14,7 +14,7 @@ import StarRating from "../components/StarRating.jsx";
 import TrustPanel from "../components/TrustLens/TrustPanel.jsx";
 import UserTrustVote from "../components/TrustLens/UserTrustVote.jsx";
 import MockReturn from "../components/TrustLens/MockReturn.jsx";
-import { useDna } from "../contexts/DnaContext.jsx";
+import { useSense } from "../contexts/SenseContext.jsx";
 import ReturnRiskBadge from "../components/ReturnRiskBadge.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
 import PriceDropPrediction from "../components/TrustLens/PriceDropPrediction.jsx";
@@ -35,7 +35,7 @@ export default function ProductPage() {
   const { user: authUser, realUser } = useAuth();
   const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
-  const { recordEvent } = useDna();
+  const { recordEvent, getProductMatch } = useSense();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -45,6 +45,7 @@ export default function ProductPage() {
   const [trustAnalyzing, setTrustAnalyzing] = useState(false);
   const [userReturnCount, setUserReturnCount] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
+  const [dnaMatch, setDnaMatch] = useState(null);
   const [dbReviews, setDbReviews] = useState([]);
   const [reviewsTotal, setReviewsTotal] = useState(0);
   const [reviewsPage, setReviewsPage] = useState(1);
@@ -106,6 +107,12 @@ export default function ProductPage() {
       if (product) recordEvent("view", product);
     }, [product?.id]);
 
+  // Fetch Amazon Sense match score
+  useEffect(() => {
+    if (product) {
+      getProductMatch(product).then((data) => { if (data) setDnaMatch(data); });
+    }
+  }, [product?.id]);
 
   const handleAddToCart = () => {
     addToCart(product, qty);
@@ -322,6 +329,70 @@ export default function ProductPage() {
             </div>
 
             {showOnProduct && <SustainabilityPanel data={sustainData} />}
+
+            {/* ── AMAZON SENSE MATCH ── */}
+            {dnaMatch && dnaMatch.confident && (() => {
+              // Dampen Sense score when TrustLens is below 75
+              const trustScore = trustData?.productScore ?? 75;
+              let displayScore = dnaMatch.score;
+
+              // TrustLens below 40: hide entirely
+              if (trustScore < 40) return null;
+
+              if (trustScore < 75 && displayScore >= 95) {
+                // Force Pick Me down into Recommended range (80-94)
+                const trustRatio = (trustScore - 40) / 35; // 0..1 (40→0, 74→0.97)
+                displayScore = Math.round(80 + trustRatio * 14); // 80..94
+              }
+              if (displayScore < 80) return null;
+              return (
+              <div className={`mb-4 border rounded-xl p-4 ${displayScore >= 95 ? "bg-[#FFF8E1] border-[#FFE082]" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {displayScore >= 95 && <span className="text-base">👑</span>}
+                    <span className="text-sm font-bold text-[#0F1111]">
+                      {displayScore >= 95 ? `${displayScore}% Likely To Love This` : `${displayScore}% Match`}
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-[#131921] text-white px-2 py-0.5 rounded-full font-bold">AMAZON SENSE</span>
+                </div>
+                <p className="text-xs text-[#565959] mb-3">
+                  {displayScore >= 95
+                    ? "This recommendation is based on your shopping behavior."
+                    : dnaMatch.message}
+                </p>
+
+                {/* Positive reasons */}
+                {dnaMatch.reasons?.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {dnaMatch.reasons.map((r, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-xs text-[#1B5E20]">
+                        <span>✓</span> {r}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Warnings */}
+                {dnaMatch.warnings?.length > 0 && (
+                  <div className="space-y-1 mt-2 pt-2 border-t border-orange-200">
+                    {dnaMatch.warnings.map((w, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-xs text-[#CC0C39]">
+                        <span>⚠</span> {w}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              );
+            })()}
+            {dnaMatch && !dnaMatch.confident && (
+              <div className="mb-4 border border-gray-200 rounded-xl p-3 bg-gray-50">
+                <p className="text-xs text-[#565959] flex items-center gap-1.5">
+                  <span>🧠</span> {dnaMatch.message}
+                </p>
+              </div>
+            )}
 
             {/* Pricing */}
             <div className="mb-4">
