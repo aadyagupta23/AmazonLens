@@ -57,53 +57,108 @@ function getGroq() {
 }
 
 // POST /api/bundles/ai
-// Body: { orders: [{ name, id, category }], history: [{ name }] }
+// Body: { recentOrder: [{id,name,category}], olderOrders: [...], allPurchasedIds: [...], history: [{name}] }
 router.post("/ai", async (req, res) => {
-  const { orders = [], history = [] } = req.body;
+  const { recentOrder = [], olderOrders = [], allPurchasedIds = [], history = [] } = req.body;
 
   if (!getGroq()) {
     return res.status(503).json({ message: "AI service unavailable" });
   }
 
-  if (orders.length === 0) {
-    return res.status(400).json({ message: "No orders provided" });
+  if (recentOrder.length === 0) {
+    return res.status(400).json({ message: "No recent order provided" });
   }
 
-  const catalogText = CATALOG.map((p) => `${p.id}: ${p.name} [${p.category}]`).join("\n");
+  // Import prices from mockData for richer AI context
+  let productPrices = {};
+  try {
+    const { products } = await import("../data/mockData.js");
+    products.forEach((p) => { productPrices[p.id] = p.price; });
+  } catch (_) {}
 
-  const orderedText = orders
-    .slice(0, 10)
-    .map((o) => `- ${o.name}${o.category ? ` (${o.category})` : ""}`)
-    .join("\n");
+  const catalogText = CATALOG.map((p) => {
+    const price = productPrices[p.id] ? ` ₹${productPrices[p.id].toLocaleString("en-IN")}` : "";
+    return `${p.id}: ${p.name} [${p.category}]${price}`;
+  }).join("\n");
 
+  const resolveItem = (item) => {
+    const c = CATALOG.find((c) => c.id === item.id);
+    const name = c?.name || item.name;
+    const cat = c?.category || item.category || "";
+    return `- ${name}${cat ? ` [${cat}]` : ""}`;
+  };
+
+  const recentText = recentOrder.map(resolveItem).join("\n");
+  const olderText = olderOrders.length > 0 ? olderOrders.map(resolveItem).join("\n") : "None";
   const historyText = history.slice(0, 5).map((h) => `- ${h.name}`).join("\n");
 
-  const prompt = `You are a smart bundle recommender for an Indian e-commerce platform.
+  const excludeIds = new Set([
+    ...allPurchasedIds,
+    ...recentOrder.map((i) => i.id),
+    ...olderOrders.map((i) => i.id),
+  ].filter(Boolean));
 
-The user has ordered:
-${orderedText}
-${historyText ? `\nRecently browsed:\n${historyText}` : ""}
+  const prompt = `You are a smart personal shopping assistant for an Indian e-commerce platform.
+Your job is to suggest product bundles that DIRECTLY complement what the user just bought.
 
-Available product catalog (ID: Name [category]):
+━━━ MOST RECENT ORDER (highest priority — build recommendations around this) ━━━
+${recentText}
+
+━━━ PREVIOUSLY PURCHASED (exclude from suggestions) ━━━
+${olderText}
+${historyText ? `\n━━━ RECENTLY BROWSED ━━━\n${historyText}` : ""}
+
+━━━ FULL CATALOG (ID: Name [category] Price) ━━━
 ${catalogText}
 
-Based ONLY on the user's actual orders and browsing history, suggest 2 complementary product bundles.
-Each bundle must:
-- Contain 3–5 product IDs from the catalog above (ONLY use exact IDs from the list)
-- NOT include products the user already ordered
-- Have a specific title and reason referencing what they actually bought
-- Feel genuinely useful and personally relevant
+━━━ CATEGORY COMPLEMENT RULES (follow these strictly) ━━━
+grocery / food (coffee, tea, snacks)  → kitchen appliances: kettle, cooker, induction cooktop, air fryer
+kitchen appliances                    → other kitchen appliances + personal care (bottles, containers)
+tv / streaming                        → audio (soundbar, headphones) + streaming devices
+phone                                 → audio accessories (earbuds, headphones) + power bank + USB hub
+gaming                                → gaming peripherals: keyboard, mouse, monitor, desk mat
+office / laptop / monitor             → desk accessories: stand, lamp, webcam, mouse, cable management, USB hub
+smart home                            → more smart home: smart bulb, smart plug, Echo Dot
+audio (headphones, earbuds)           → phone, streaming, or office accessories
+furniture (chair, desk)               → office or study accessories
+personal care                         → other personal care or home items
+home / cleaning                       → other home organisation items
 
-Return ONLY valid JSON (no markdown, no explanation):
+IMPORTANT: If the user bought a grocery/food item like coffee, recommend KITCHEN appliances — NOT home storage or furniture. A coffee buyer needs a kettle or induction cooktop, not a laundry basket.
+
+Your task:
+1. Look at the most recent order category and apply the complement rules above
+2. Create exactly 2 bundles with a coherent theme each — not a random mix
+3. Each bundle must stay tightly within the correct complement category
+
+Rules:
+- Each bundle: 3–5 product IDs, ONLY exact IDs from the catalog above
+- NEVER include products the user already owns
+- Title must name the specific theme (e.g. "Complete Your Kitchen Setup", "Level Up Your Gaming Den")
+- "reason" must specifically name the product(s) they just bought and explain the direct connection
+- "goal" is one sentence: what practical problem does this bundle solve?
+- "perItemReasons" maps each productId to a one-line reason why that specific item belongs
+- "shoppingContext" is your inference (e.g. "kitchen upgrade", "home office setup", "gaming den")
+
+Confidence rubric (be strict — do not inflate):
+- 90–99: Bundle directly completes the ecosystem from the recent order
+- 75–89: Strong match, most items clearly useful given what was just bought
+- 60–74: Moderate match
+- 40–59: Weak, tangential
+
+Return ONLY valid JSON, no markdown, no extra text:
 {
+  "shoppingContext": "...",
   "bundles": [
     {
       "id": "bundle_1",
       "title": "...",
-      "reason": "...",
+      "reason": "Since you just bought [exact product name], ...",
+      "goal": "...",
       "items": [{"productId": "p..."}],
-      "confidence": 85,
-      "tag": "Based on your orders"
+      "perItemReasons": {"p...": "one-line reason", "p...": "one-line reason"},
+      "confidence": 84,
+      "tag": "Based on your recent order"
     }
   ]
 }`;
@@ -111,25 +166,28 @@ Return ONLY valid JSON (no markdown, no explanation):
   try {
     const completion = await getGroq().chat.completions.create({
       model: "llama-3.3-70b-versatile",
-      max_tokens: 512,
-      temperature: 0.4,
+      max_tokens: 900,
+      temperature: 0.2,
       messages: [
-        { role: "system", content: "You are a product bundle recommender. Return only valid JSON with no markdown." },
+        { role: "system", content: "You are a product bundle recommender. Return ONLY valid JSON with no markdown fences or extra text." },
         { role: "user", content: prompt },
       ],
     });
 
-    const text = completion.choices[0].message.content.trim().replace(/```json|```/g, "").trim();
+    const raw = completion.choices[0].message.content.trim();
+    const text = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     const parsed = JSON.parse(text);
 
-    // Validate product IDs exist in catalog
     const validIds = new Set(CATALOG.map((p) => p.id));
-    const orderedIds = new Set(orders.map((o) => o.id).filter(Boolean));
 
-    parsed.bundles = (parsed.bundles || []).map((bundle) => ({
-      ...bundle,
-      items: (bundle.items || []).filter((i) => validIds.has(i.productId) && !orderedIds.has(i.productId)),
-    })).filter((b) => b.items.length >= 2);
+    parsed.bundles = (parsed.bundles || [])
+      .map((bundle) => ({
+        ...bundle,
+        items: (bundle.items || []).filter(
+          (i) => validIds.has(i.productId) && !excludeIds.has(i.productId)
+        ),
+      }))
+      .filter((b) => b.items.length >= 2);
 
     res.json(parsed);
   } catch (err) {

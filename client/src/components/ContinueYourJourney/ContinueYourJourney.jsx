@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { CONTINUE_MOCK } from "./continueData.js";
 import { products } from "../../../../server/data/mockData.js";
 import { useOrders } from "../../contexts/OrdersContext.jsx";
 import { useHistory } from "../../contexts/HistoryContext.jsx";
@@ -17,12 +16,24 @@ export default function ContinueYourJourney() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const orderedItems = orders.slice(0, 3).flatMap((o) =>
-      o.items.map((i) => ({ id: i.id, name: i.name, category: i.category || "" }))
-    );
+    // Read fresh directly from localStorage to avoid stale React state
+    let freshOrders;
+    try { freshOrders = JSON.parse(localStorage.getItem("amz_orders") || "[]"); }
+    catch { freshOrders = []; }
 
-    if (orderedItems.length === 0) {
-      setBundles(CONTINUE_MOCK);
+    if (freshOrders.length === 0) {
+      setBundles([]);
+      return;
+    }
+
+    const toItem = (i) => ({ id: i.id, name: i.name, category: i.category || "" });
+
+    const recentOrder = (freshOrders[0]?.items || []).map(toItem);
+    const olderOrders = freshOrders.slice(1, 3).flatMap((o) => (o.items || []).map(toItem));
+    const allPurchasedIds = freshOrders.slice(0, 6).flatMap((o) => (o.items || []).map((i) => i.id));
+
+    if (recentOrder.length === 0) {
+      setBundles([]);
       return;
     }
 
@@ -31,7 +42,9 @@ export default function ContinueYourJourney() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        orders: orderedItems,
+        recentOrder,
+        olderOrders,
+        allPurchasedIds,
         history: history.slice(0, 5).map((h) => ({ name: h.name })),
       }),
     })
@@ -41,10 +54,10 @@ export default function ContinueYourJourney() {
           setBundles(data.bundles);
           localStorage.setItem("amz_ai_bundles", JSON.stringify(data.bundles));
         } else {
-          setBundles(CONTINUE_MOCK);
+          setBundles([]);
         }
       })
-      .catch(() => setBundles(CONTINUE_MOCK))
+      .catch(() => setBundles([]))
       .finally(() => setLoading(false));
   }, [orders.length]);
 
@@ -73,9 +86,9 @@ export default function ContinueYourJourney() {
     );
   }
 
-  if (!featured) return null;
+  if (!featured || bundles.length === 0) return null;
 
-  // normalise: CONTINUE_MOCK uses items:[{productId}], AI also uses items:[{productId}]
+  // AI bundles use items:[{productId}]
   const resolvedProducts = (featured.items || [])
     .map((item) => products.find((p) => p.id === item.productId))
     .filter(Boolean);

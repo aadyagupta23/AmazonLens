@@ -101,15 +101,16 @@ export default function BundleDetailPage() {
         .map((i) => products.find((p) => p.id === i.productId))
         .filter(Boolean);
       const total = resolvedPrices.reduce((s, p) => s + p.price, 0);
-      const originalTotal = resolvedPrices.reduce((s, p) => s + (p.originalPrice || p.price), 0);
       return {
         id: found.id,
         name: found.title,
         tagline: found.reason,
+        goal: found.goal || null,
         products: (found.items || []).map((i) => i.productId),
+        perItemReasons: found.perItemReasons || {},
         totalPrice: total,
-        originalTotal,
-        savings: originalTotal - total,
+        originalTotal: total,
+        savings: 0,
         completeness: 100,
         missingItems: [],
         suggestedAddons: [],
@@ -252,14 +253,25 @@ export default function BundleDetailPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-[#DDD] shadow-sm p-4 text-center">
-              <div className="text-2xl font-bold text-green-700">
-                ₹{bundle.savings.toLocaleString("en-IN")}
+            {bundle.isAiBundle ? (
+              <div className="bg-white rounded-lg border border-[#DDD] shadow-sm p-4 text-center">
+                <div className="text-2xl font-bold text-[#007185]">
+                  {bundle.confidence ?? "—"}%
+                </div>
+                <div className="text-xs text-[#565959] mt-0.5 font-medium uppercase tracking-wide">
+                  AI Match
+                </div>
               </div>
-              <div className="text-xs text-[#565959] mt-0.5 font-medium uppercase tracking-wide">
-                You Save
+            ) : (
+              <div className="bg-white rounded-lg border border-[#DDD] shadow-sm p-4 text-center">
+                <div className="text-2xl font-bold text-green-700">
+                  ₹{bundle.savings.toLocaleString("en-IN")}
+                </div>
+                <div className="text-xs text-[#565959] mt-0.5 font-medium uppercase tracking-wide">
+                  You Save
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="bg-white rounded-lg border border-[#DDD] shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-[#0F1111]">
@@ -284,17 +296,29 @@ export default function BundleDetailPage() {
               Add Entire Setup to Cart
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-[#565959]">
-              <TrendingDown size={12} className="text-green-600" />
-              <span>
-                Save{" "}
-                <span className="font-bold text-green-700">{totalSavingsPct}%</span>{" "}
-                vs. buying individually
-              </span>
-            </div>
+            {!bundle.isAiBundle && totalSavingsPct > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-[#565959]">
+                <TrendingDown size={12} className="text-green-600" />
+                <span>
+                  Save{" "}
+                  <span className="font-bold text-green-700">{totalSavingsPct}%</span>{" "}
+                  vs. buying individually
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ── AI GOAL (shown only for AI bundles) ───────────────────────── */}
+      {bundle.isAiBundle && bundle.goal && (
+        <div className="bg-[#E6F2F2] border border-[#007185]/30 rounded-xl px-5 py-4 mb-5 flex items-start gap-3">
+          <Sparkles size={16} className="text-[#007185] mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-[#0F1111]">
+            <span className="font-semibold text-[#007185]">Goal: </span>{bundle.goal}
+          </p>
+        </div>
+      )}
 
       {/* ── INCLUDED PRODUCTS ──────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-[#DDD] p-5 mb-5 shadow-sm">
@@ -309,7 +333,14 @@ export default function BundleDetailPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {bundleProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <div key={product.id} className="flex flex-col gap-1">
+              <ProductCard product={product} />
+              {bundle.isAiBundle && bundle.perItemReasons?.[product.id] && (
+                <p className="text-[10px] text-[#565959] leading-snug px-1">
+                  {bundle.perItemReasons[product.id]}
+                </p>
+              )}
+            </div>
           ))}
         </div>
       </div>

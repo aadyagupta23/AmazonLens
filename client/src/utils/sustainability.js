@@ -68,7 +68,7 @@ export function getSustainabilityColor(score) {
  * Applies a small bonus for each active preference.
  */
 export function getUserSustainabilityScore(items = [], prefs = {}) {
-  if (items.length === 0) return 78; // demo default
+  if (items.length === 0) return null;
 
   const scores = items.map((item) => getSustainabilityData(item.id).score);
   const avg = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
