@@ -5,8 +5,6 @@ import { API } from "../utils/format.js";
 import ProductCard from "../components/ProductCard.jsx";
 import SensePopup from "../components/SensePopup.jsx";
 import ContinueYourJourney from "../components/ContinueYourJourney/ContinueYourJourney.jsx";
-import RecommendedJourneys from "../components/RecommendedJourneys/RecommendedJourneys.jsx";
-import LifestyleJourneys from "../components/LifestyleJourneys/LifestyleJourneys.jsx";
 import ShoppingInsights from "../components/ShoppingInsights/ShoppingInsights.jsx";
 import {
   ChevronRight, Smartphone, Tv, Music2, UtensilsCrossed,
@@ -168,9 +166,6 @@ export default function Homepage() {
 
         {/* ── 7. POPULAR SHOPPING LISTS ──
         <RecommendedJourneys /> */}
-
-        {/* ── 8. RECOMMENDED JOURNEYS (aspirational / lifestyle) ── */}
-        <LifestyleJourneys />
 
         {/* ── 9. SHOPPING INSIGHTS (analytics layer, bottom) ── */}
         <ShoppingInsights />
