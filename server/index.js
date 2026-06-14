@@ -17,6 +17,7 @@ import coPlannerRoutes from "./routes/coPlanner.js";
 import customerRoutes from "./routes/customers.js";
 import companyRoutes from "./routes/companies.js";
 import bundleRoutes from "./routes/bundles.js";
+import returnsRoutes from "./routes/returns.js";
 import {
   getProductWitnesses,
   registerWitness,
@@ -153,6 +154,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/dna", dnaRoutes);
 app.use("/api/bundles", bundleRoutes);
+app.use("/api/returns", returnsRoutes);
 
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
 
