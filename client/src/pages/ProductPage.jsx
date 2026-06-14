@@ -270,11 +270,13 @@ export default function ProductPage() {
 
             {/* TrustLens Panel */}
             <div className="mb-4">
-              <TrustPanel
-                data={trustData}
-                loading={trustAnalyzing}
-                sellerName={trustData?.sellerName}
-              />
+            <div className="max-h-[500px] overflow-y-auto overscroll-contain rounded-xl">
+            <TrustPanel
+              data={trustData}
+              loading={trustAnalyzing}
+              sellerName={trustData?.sellerName}
+            />
+          </div>
               {!trustAnalyzing && trustData && (
                 <div className="mt-1 bg-white border border-gray-200 rounded-2xl px-4 py-1 shadow-sm">
                   <UserTrustVote productId={productId} />
@@ -458,7 +460,7 @@ export default function ProductPage() {
               </div>
 
               {/* Review list — from customer database */}
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[700px] overflow-y-auto  overscroll-contain pr-2">
                 {dbReviews.map((review, i) => (
                   <div key={`${review.customerId}-${i}`} className="border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-2 mb-1">

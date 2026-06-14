@@ -598,13 +598,6 @@ function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemo
           <ThumbsDown size={12} /> {item.downvotes > 0 && <span className="font-bold">{item.downvotes}</span>}
         </button>
         <button
-          onClick={() => onMoveToCart(p)}
-          className="text-[10px] text-[#007185] hover:text-[#C7511F] hover:underline flex-shrink-0 px-1.5"
-          title="Move to Cart"
-        >
-          🛒
-        </button>
-        <button
           onClick={() => onRemove(item.productId)}
           className="p-1.5 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
           title="Remove item"
