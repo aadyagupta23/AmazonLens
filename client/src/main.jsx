@@ -9,6 +9,7 @@ import { WishlistProvider } from "./contexts/WishlistContext.jsx";
 import { SustainabilityProvider } from "./contexts/SustainabilityContext.jsx";
 import { CoPlannerProvider } from "./contexts/CoPlannerContext.jsx";
 import { HistoryProvider } from "./contexts/HistoryContext.jsx";
+import { ReviewsProvider } from "./contexts/ReviewsContext.jsx";
 import CoPlannerPicker from "./components/CoPlannerPicker.jsx";
 import "./index.css";
 
@@ -21,8 +22,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <SustainabilityProvider>
               <CoPlannerProvider>
                 <HistoryProvider>
-                  <App />
-                  <CoPlannerPicker />
+                  <ReviewsProvider>
+                    <App />
+                    <CoPlannerPicker />
+                  </ReviewsProvider>
                 </HistoryProvider>
               </CoPlannerProvider>
             </SustainabilityProvider>

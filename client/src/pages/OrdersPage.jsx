@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
 import {
-  Package, Leaf, TrendingDown, Sparkles, ChevronRight,
-  Users, ThumbsUp, ThumbsDown, Gift, Zap, Star, ShoppingBag,
+  Package, Leaf, TrendingDown, ChevronRight,
+  Users, ThumbsUp, ThumbsDown, Gift, Zap, Star, ShoppingBag, MapPin, X,
 } from "lucide-react";
 import { useOrders } from "../contexts/OrdersContext.jsx";
 import { useWitness } from "../contexts/WitnessContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { formatPrice } from "../utils/format.js";
+import { useReviews } from "../contexts/ReviewsContext.jsx";
+import { formatPrice, API } from "../utils/format.js";
 
 function timeAgo(isoString) {
   const days = Math.floor((Date.now() - new Date(isoString)) / (1000 * 60 * 60 * 24));
@@ -92,10 +94,127 @@ function WitnessSignup({ item, onDone }) {
   );
 }
 
+function InlineReviewForm({ item, user, onDone }) {
+  const { saveReview, hasReviewed } = useReviews();
+  const [form, setForm] = useState({ rating: 0, hoverRating: 0, title: "", body: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  if (hasReviewed(item.id)) {
+    return (
+      <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+        <span className="text-sm text-blue-800">You've already reviewed this product.</span>
+        <Link to="/my-reviews" className="text-xs text-[#007185] underline ml-2">See your reviews →</Link>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (form.rating === 0) { setError("Please select a star rating."); return; }
+    setSubmitting(true);
+    setError("");
+    try {
+      await axios.post(`${API}/api/customers/reviews`, {
+        name: user?.name || "Anonymous",
+        email: user?.email || "",
+        productId: item.id,
+        seller: item.soldBy || "",
+        rating: form.rating,
+        title: form.title,
+        body: form.body,
+      });
+      saveReview({
+        productId: item.id,
+        productName: item.name,
+        productThumbnail: item.thumbnail,
+        rating: form.rating,
+        title: form.title,
+        body: form.body,
+        date: new Date().toISOString(),
+      });
+      setSuccess(true);
+      setTimeout(onDone, 1500);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to submit. Please try again.");
+      setSubmitting(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="mt-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+        ✓ Review submitted! It now appears on the product page.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 border border-[#FFD814] rounded-lg p-4 bg-[#FFFBEA]">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold text-[#0F1111]">Write a Review</h4>
+        <button onClick={onDone} className="text-[#999] hover:text-[#CC0C39]"><X size={16} /></button>
+      </div>
+      <div className="flex items-center gap-2 mb-3 text-xs text-[#565959]">
+        <div className="w-5 h-5 rounded-full bg-[#232F3E] text-white text-[10px] flex items-center justify-center font-bold">
+          {user?.name?.[0]?.toUpperCase() || "?"}
+        </div>
+        Reviewing as <span className="font-medium text-[#0F1111]">{user?.name || "Guest"}</span>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="text-xs text-[#565959] block mb-1">Overall rating</label>
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, rating: s }))}
+                onMouseEnter={() => setForm((f) => ({ ...f, hoverRating: s }))}
+                onMouseLeave={() => setForm((f) => ({ ...f, hoverRating: 0 }))}
+              >
+                <Star size={22} className={s <= (form.hoverRating || form.rating) ? "text-[#FF9900] fill-[#FF9900]" : "text-gray-300"} />
+              </button>
+            ))}
+          </div>
+        </div>
+        <input
+          type="text"
+          required
+          placeholder="Review headline"
+          value={form.title}
+          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900] bg-white"
+        />
+        <textarea
+          required
+          rows={3}
+          placeholder="What did you like or dislike?"
+          value={form.body}
+          onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900] resize-none bg-white"
+        />
+        {error && <p className="text-xs text-red-600">{error}</p>}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-bold px-5 py-2 rounded-full disabled:opacity-50"
+        >
+          {submitting ? "Submitting…" : "Submit Review"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   const { orders } = useOrders();
   const { witnessInfo } = useWitness();
+  const { user } = useAuth();
   const [expandedWitness, setExpandedWitness] = useState(null);
+  const [expandedReview, setExpandedReview] = useState(null);
+  const [expandedDetails, setExpandedDetails] = useState(null);
 
   // Flatten all orders into individual item rows
   const orderItems = orders.flatMap((order) =>
@@ -217,10 +336,22 @@ export default function OrdersPage() {
                     >
                       Buy Again
                     </Link>
-                    <button className="border border-[#DDD] px-5 py-2 rounded hover:bg-[#F7F8F8] text-sm">
+                    <button
+                      onClick={() => {
+                        setExpandedReview(expandedReview === key ? null : key);
+                        setExpandedDetails(null);
+                      }}
+                      className={`border px-5 py-2 rounded text-sm font-semibold transition-colors ${expandedReview === key ? "border-[#FF9900] bg-[#FFFBEA] text-[#0F1111]" : "border-[#DDD] hover:bg-[#F7F8F8]"}`}
+                    >
                       Write Review
                     </button>
-                    <button className="border border-[#DDD] px-5 py-2 rounded hover:bg-[#F7F8F8] text-sm">
+                    <button
+                      onClick={() => {
+                        setExpandedDetails(expandedDetails === key ? null : key);
+                        setExpandedReview(null);
+                      }}
+                      className={`border px-5 py-2 rounded text-sm font-semibold transition-colors ${expandedDetails === key ? "border-[#007185] bg-[#f0fafa] text-[#007185]" : "border-[#DDD] hover:bg-[#F7F8F8]"}`}
+                    >
                       View Details
                     </button>
                     {witnessInfo?.productId !== item.id && (
@@ -234,6 +365,60 @@ export default function OrdersPage() {
                       </button>
                     )}
                   </div>
+
+                  {/* Write Review inline form */}
+                  {expandedReview === key && (
+                    <InlineReviewForm item={item} user={user} onDone={() => setExpandedReview(null)} />
+                  )}
+
+                  {/* View Details inline panel */}
+                  {expandedDetails === key && (
+                    <div className="mt-3 border border-[#007185]/30 rounded-lg p-4 bg-[#f0fafa] text-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-[#0F1111]">Order Details</h4>
+                        <button onClick={() => setExpandedDetails(null)} className="text-[#999] hover:text-[#CC0C39]"><X size={16} /></button>
+                      </div>
+                      <div className="space-y-2 text-[#0F1111]">
+                        <div className="flex justify-between">
+                          <span className="text-[#565959]">Order ID</span>
+                          <span className="font-mono text-xs">{item.orderId}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#565959]">Placed</span>
+                          <span>{new Date(item.placedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#565959]">Status</span>
+                          <span className="text-green-700 font-medium">{item.status}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#565959]">Qty</span>
+                          <span>{item.qty}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#565959]">Price paid</span>
+                          <span className="font-medium">{formatPrice(item.price * item.qty)}</span>
+                        </div>
+                        {item.originalPrice > item.price && (
+                          <div className="flex justify-between">
+                            <span className="text-[#565959]">You saved</span>
+                            <span className="text-green-700 font-medium">{formatPrice((item.originalPrice - item.price) * item.qty)}</span>
+                          </div>
+                        )}
+                        {item.address && (
+                          <div className="pt-2 border-t border-[#007185]/20">
+                            <div className="flex items-start gap-1.5">
+                              <MapPin size={13} className="text-[#565959] mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="text-xs font-medium text-[#0F1111]">Delivered to</p>
+                                <p className="text-xs text-[#565959]">{item.address}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Witness incentive card */}
                   {expandedWitness !== key && witnessInfo?.productId !== item.id && (

@@ -28,6 +28,15 @@ export default function Navbar() {
   const [showAccount, setShowAccount] = useState(false);
   const [smartMode, setSmartMode] = useState(false);
   const inputRef = useRef(null);
+  const accountCloseTimer = useRef(null);
+
+  const openAccount = () => {
+    if (accountCloseTimer.current) clearTimeout(accountCloseTimer.current);
+    setShowAccount(true);
+  };
+  const closeAccount = () => {
+    accountCloseTimer.current = setTimeout(() => setShowAccount(false), 200);
+  };
 
   // Sync query from URL when on smart-search page
   useEffect(() => {
@@ -159,8 +168,8 @@ export default function Navbar() {
           {/* Account */}
           <div
             className="relative flex-shrink-0"
-            onMouseEnter={() => setShowAccount(true)}
-            onMouseLeave={() => setShowAccount(false)}
+            onMouseEnter={openAccount}
+            onMouseLeave={closeAccount}
           >
             <Link
               to={realUser ? "/account" : "/login"}
@@ -173,7 +182,12 @@ export default function Navbar() {
             </Link>
 
             {showAccount && (
-              <div className="absolute right-0 top-full mt-1 bg-white rounded shadow-2xl border border-gray-200 w-64 z-50 text-[#0F1111] p-4">
+              <div
+                className="absolute right-0 top-full pt-1 bg-transparent w-64 z-50"
+                onMouseEnter={openAccount}
+                onMouseLeave={closeAccount}
+              >
+              <div className="bg-white rounded shadow-2xl border border-gray-200 p-4 text-[#0F1111]">
                 {!realUser ? (
                   <div className="text-center">
                     <Link
@@ -206,6 +220,7 @@ export default function Navbar() {
                     { label: "Your Prime", href: "/prime" },
                     { label: "Recommendations", href: "/" },
                     { label: "Browsing History", href: "/history" },
+                    { label: "Your Reviews", href: "/my-reviews" },
                   ].map((item) => (
                     <Link
                       key={item.label}
@@ -238,6 +253,7 @@ export default function Navbar() {
                   </button>
                 </div>
               </div>
+            </div>
             )}
           </div>
 

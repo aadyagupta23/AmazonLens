@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
+import { useReviews } from "../contexts/ReviewsContext.jsx";
 import { formatPrice } from "../utils/format.js";
 import StarRating from "./StarRating.jsx";
 import { Heart, Leaf, Users, Check, Plus, Minus } from "lucide-react";
@@ -24,8 +25,13 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const { items, addToCart, updateQty, removeFromCart } = useCart();
   const { toggle, isInWishlist } = useWishlist();
   const { startAddToPlan, plans } = useCoPlanner();
+  const { getAdjustedRating } = useReviews();
   const wishlisted = isInWishlist(product.id);
   const [justAdded, setJustAdded] = useState(false);
+
+  const adjusted = getAdjustedRating(product.id, product.rating, product.reviewCount);
+  const displayRating = adjusted?.rating ?? product.rating;
+  const displayCount = adjusted?.count ?? product.reviewCount;
 
   // Check if product is already in cart
   const cartItem = items.find((i) => i.id === product.id);
@@ -103,7 +109,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
         </h3>
 
         <div className="mb-1">
-          <StarRating rating={product.rating} count={product.reviewCount} />
+          <StarRating rating={displayRating} count={displayCount} />
         </div>
 
         <div className="mt-auto">

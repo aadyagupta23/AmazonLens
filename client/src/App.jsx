@@ -24,6 +24,7 @@ import { WitnessProvider } from "./contexts/WitnessContext.jsx";
 import { DnaProvider } from "./contexts/DnaContext.jsx";
 import WitnessToast from "./components/WitnessToast.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
+import MyReviewsPage from "./pages/MyReviewsPage.jsx";
 
 export default function App() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/minitv" element={<StubPage />} />
         <Route path="/witness" element={<WitnessPortal />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/my-reviews" element={<MyReviewsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
-import { Leaf, User, Package, Heart, Clock, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { Leaf, User, Package, Heart, Clock, Star, ChevronRight, Pencil, Check, X } from "lucide-react";
 import DnaPanel from "../components/DnaPanel.jsx";
 
 export default function AccountPage() {
@@ -95,6 +95,7 @@ export default function AccountPage() {
           { Icon: Package, label: "Your Orders",   sub: "Track, return, or buy again",    href: "/orders"   },
           { Icon: Heart,   label: "Your Wishlist",  sub: "Saved items and wish lists",     href: "/wishlist" },
           { Icon: Clock,   label: "Browsing History", sub: "Recently viewed items",        href: "/history"  },
+          { Icon: Star,    label: "Your Reviews",    sub: "Reviews you've written",         href: "/my-reviews" },
           { Icon: User,    label: "Login & Security", sub: "Update password and email",    href: "/account#security"  },
         ].map(({ Icon, label, sub, href }) => (
           <Link
