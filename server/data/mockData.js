@@ -1883,6 +1883,9 @@ export const bundles = [
     totalPrice: 63998,
     originalTotal: 108998,
     savings: 45000,
+    completeness: 75,
+    missingItems: ["Streaming Subscription", "HDMI Cable (Premium)", "TV Wall Mount"],
+    suggestedAddons: ["p037", "p014"],
     products: ["p001", "p002", "p008"],
     productDetails: [
       { id: "p001", name: 'Sony Bravia 55" 4K TV', price: 54999 },
@@ -1899,13 +1902,16 @@ export const bundles = [
     totalPrice: 18746,
     originalTotal: 31296,
     savings: 12550,
-    products: ["p019", "p020", "p017", "p022", "p023"],
+    completeness: 80,
+    missingItems: ["Webcam", "Mechanical Keyboard", "Desk Mat"],
+    suggestedAddons: ["p024", "p021", "p027"],
+    products: ["p023", "p019", "p017", "p022", "p018"],
     productDetails: [
-      { id: "p019", name: "LG 24-inch Monitor", price: 7999 },
-      { id: "p020", name: "Philips LED Study Lamp", price: 1199 },
+      { id: "p023", name: "LG 24-inch IPS Monitor", price: 7999 },
+      { id: "p019", name: "Philips LED Study Lamp", price: 1199 },
       { id: "p017", name: "GreenSoul Ergonomic Chair", price: 8499 },
-      { id: "p022", name: "Amazon Basics Cable Kit", price: 399 },
-      { id: "p023", name: "Logitech M235 Mouse", price: 649 }
+      { id: "p022", name: "Logitech M235 Wireless Mouse", price: 649 },
+      { id: "p018", name: "Portronics Laptop Stand", price: 399 }
     ]
   },
 
@@ -1917,11 +1923,14 @@ export const bundles = [
     totalPrice: 12499,
     originalTotal: 18999,
     savings: 6500,
+    completeness: 60,
+    missingItems: ["Water Bottle", "Extension Board", "Bedsheet Set", "Locks & Hangers"],
+    suggestedAddons: ["p010", "p009"],
     products: ["p011", "p012", "p013"],
     productDetails: [
-      { id: "p011", name: "Electric Kettle", price: 1499 },
-      { id: "p012", name: "Bedsheet Set", price: 999 },
-      { id: "p013", name: "Storage Organizer", price: 1299 }
+      { id: "p011", name: "Classmate Notebook Pack (6-Pack)", price: 360 },
+      { id: "p012", name: "Bewakoof Organic T-Shirt", price: 499 },
+      { id: "p013", name: "Amazon Basics Grocery Bags", price: 349 }
     ]
   },
 
@@ -1933,11 +1942,14 @@ export const bundles = [
     totalPrice: 15999,
     originalTotal: 23999,
     savings: 8000,
-    products: ["p019", "p021", "p023"],
+    completeness: 70,
+    missingItems: ["Webcam", "USB Hub", "Noise-Cancelling Headphones"],
+    suggestedAddons: ["p024", "p025", "p026"],
+    products: ["p023", "p017", "p022"],
     productDetails: [
-      { id: "p019", name: "LG 24-inch Monitor", price: 7999 },
-      { id: "p021", name: "GreenSoul Ergonomic Chair", price: 8499 },
-      { id: "p023", name: "Logitech M235 Mouse", price: 649 }
+      { id: "p023", name: "LG 24-inch IPS Monitor", price: 7999 },
+      { id: "p017", name: "GreenSoul Ergonomic Chair", price: 8499 },
+      { id: "p022", name: "Logitech M235 Wireless Mouse", price: 649 }
     ]
   },
 
@@ -1949,11 +1961,14 @@ export const bundles = [
     totalPrice: 8999,
     originalTotal: 12999,
     savings: 4000,
+    completeness: 55,
+    missingItems: ["Resistance Bands", "Foam Roller", "Protein Shaker", "Gym Gloves", "Skipping Rope"],
+    suggestedAddons: ["p010", "p013"],
     products: ["p030", "p031", "p032"],
     productDetails: [
-      { id: "p030", name: "Protein Powder", price: 2499 },
-      { id: "p031", name: "Yoga Mat", price: 999 },
-      { id: "p032", name: "Adjustable Dumbbells", price: 5499 }
+      { id: "p030", name: "Pigeon Induction Cooktop", price: 1599 },
+      { id: "p031", name: "Cello Laundry Basket", price: 499 },
+      { id: "p032", name: "Solimo Storage Organizer", price: 899 }
     ]
   },
 
@@ -1965,11 +1980,14 @@ export const bundles = [
     totalPrice: 22999,
     originalTotal: 31999,
     savings: 9000,
-    products: ["p040", "p041", "p042"],
+    completeness: 65,
+    missingItems: ["Ring Light", "Green Screen", "Capture Card", "Streaming Mic Arm"],
+    suggestedAddons: ["p025", "p019", "p027"],
+    products: ["p024", "p023", "p026"],
     productDetails: [
-      { id: "p040", name: "USB Microphone", price: 3999 },
-      { id: "p041", name: "Ring Light", price: 1499 },
-      { id: "p042", name: "1080p Webcam", price: 2999 }
+      { id: "p024", name: "Logitech C270 HD Webcam", price: 1999 },
+      { id: "p023", name: "LG 24-inch IPS Monitor", price: 7999 },
+      { id: "p026", name: "JBL Tune 760NC Headphones", price: 5499 }
     ]
   },
 
@@ -1981,11 +1999,14 @@ export const bundles = [
     totalPrice: 27999,
     originalTotal: 36999,
     savings: 9000,
-    products: ["p050", "p051", "p052"],
+    completeness: 85,
+    missingItems: ["Gaming Headset", "Controller Stand"],
+    suggestedAddons: ["p027", "p025"],
+    products: ["p021", "p034", "p036"],
     productDetails: [
-      { id: "p050", name: "Gaming Keyboard", price: 2499 },
-      { id: "p051", name: "Gaming Mouse", price: 1499 },
-      { id: "p052", name: "Gaming Headset", price: 2999 }
+      { id: "p021", name: "Redragon K551 Mechanical Keyboard", price: 2899 },
+      { id: "p034", name: "Razer DeathAdder Essential Mouse", price: 1299 },
+      { id: "p036", name: "Samsung Odyssey G3 27\" Monitor", price: 13999 }
     ]
   }
 ];
@@ -2018,8 +2039,6 @@ export const orderHistory = [
     avgCycleDays: 730,
     quantity: 1
   }
-
-  
 ];
 
 export const senseItems = [
