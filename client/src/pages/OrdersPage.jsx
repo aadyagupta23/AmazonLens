@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import {
-  Package, Leaf, TrendingDown, ChevronRight,
+  Package, Leaf, TrendingDown,
   Users, ThumbsUp, ThumbsDown, Gift, Zap, Star, ShoppingBag, MapPin, X, RotateCcw,
 } from "lucide-react";
 import { useOrders } from "../contexts/OrdersContext.jsx";
@@ -211,7 +211,6 @@ function InlineReviewForm({ item, user, onDone }) {
 
 export default function OrdersPage() {
   const { orders, returnItem } = useOrders();
-  const { witnessInfo } = useWitness();
   const { user } = useAuth();
   const [expandedWitness, setExpandedWitness] = useState(null);
   const [expandedReview, setExpandedReview] = useState(null);
