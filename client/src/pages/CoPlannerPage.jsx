@@ -1042,6 +1042,12 @@ export default function CoPlannerPage() {
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span>{stats.purchasedCount} purchased</span>
                 <span>{stats.itemCount - stats.purchasedCount} pending</span>
+                <a
+                  href="/cart"
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] rounded-lg text-[11px] font-bold text-[#0F1111] border border-[#FCD200] transition-colors ml-2"
+                >
+                  <ShoppingCart size={12} /> Go to Cart
+                </a>
               </div>
             </div>
 
