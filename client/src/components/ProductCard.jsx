@@ -23,7 +23,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const navigate = useNavigate();
   const { items, addToCart, updateQty, removeFromCart } = useCart();
   const { toggle, isInWishlist } = useWishlist();
-  const { startAddToPlan, plans } = useCoPlanner();
+  const { startAddToPlan, plans, lastAddedProductId } = useCoPlanner();
   const wishlisted = isInWishlist(product.id);
   const [justAdded, setJustAdded] = useState(false);
 
@@ -161,7 +161,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
             onClick={handleAddToPlan}
             className="mt-1.5 w-full flex items-center justify-center gap-1 text-xs py-1.5 rounded-full border border-gray-300 text-[#0F1111] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
           >
-            <Users size={12} /> Add to Co-Plan
+            <Users size={12} /> {lastAddedProductId === product.id ? "Manage Co-Plans" : "Add to Co-Plan"}
           </button>
         )}
       </div>
