@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
@@ -6,7 +6,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { formatPrice, API } from "../utils/format.js";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { getUserSustainabilityScore, getSustainabilityData, getSustainabilityColor } from "../utils/sustainability.js";
-import { Trash2, RefreshCw, ShoppingBag, Clock, Leaf, Users, Eye, EyeOff, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, RefreshCw, ShoppingBag, Clock, Leaf, Users, Eye, EyeOff, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
 import axios from "axios";
 
 const TABS = ["Cart", "Soon"];
@@ -19,13 +19,19 @@ export default function CartPage() {
   const { prefs } = useSustainability();
   const [activeTab, setActiveTab] = useState("Cart");
   const [senseItems, setSenseItems] = useState([]);
-  const [sharedPlans, setSharedPlans] = useState([]); // [{planId, name, items (filtered), budget, memberCount}]
-  const [expandedPlans, setExpandedPlans] = useState({}); // all collapsed by default
+  const [sharedPlans, setSharedPlans] = useState([]);
+  const [expandedPlans, setExpandedPlans] = useState({});
   const [hideShared, setHideShared] = useState(() => localStorage.getItem("al_hideSharedItems") === "true");
+
+  // Selection state: { [itemId]: boolean }
+  const [selected, setSelected] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("al_cartSelection") || "{}"); } catch (_) { return {}; }
+  });
 
   const userName = user?.name;
 
   useEffect(() => { localStorage.setItem("al_hideSharedItems", String(hideShared)); }, [hideShared]);
+  useEffect(() => { localStorage.setItem("al_cartSelection", JSON.stringify(selected)); }, [selected]);
 
   // Sustainability
   const cartSustainScore = getUserSustainabilityScore(items, prefs);
@@ -40,7 +46,7 @@ export default function CartPage() {
       });
   }, []);
 
-  // Fetch co-plan data — filter to only MY items per plan
+  // Fetch co-plan items that belong to current user
   useEffect(() => {
     if (plans.length === 0 || !userName) { setSharedPlans([]); return; }
     Promise.all(
@@ -53,31 +59,87 @@ export default function CartPage() {
               item.assignedTo === userName || (!item.assignedTo && item.addedBy === userName)
             );
             if (myItems.length === 0) return null;
-            return {
-              planId: d.plan.id,
-              name: d.plan.name,
-              items: myItems,
-              budget: d.plan.budget,
-              memberCount: d.plan.members?.length || 1,
-              stats: d.plan.stats,
-            };
+            return { planId: d.plan.id, name: d.plan.name, items: myItems, budget: d.plan.budget, memberCount: d.plan.members?.length || 1 };
           })
           .catch(() => null)
       )
     ).then((results) => setSharedPlans(results.filter(Boolean)));
   }, [plans, userName]);
 
-  const togglePlan = (planId) => {
-    setExpandedPlans((prev) => ({ ...prev, [planId]: !prev[planId] }));
+  // ── Auto-select new items (default selected) ──
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = { ...prev };
+      items.forEach((i) => { if (next[i.id] === undefined) next[i.id] = true; });
+      sharedPlans.forEach((sp) => sp.items.forEach((i) => { if (next[`cp_${i.productId}`] === undefined) next[`cp_${i.productId}`] = true; }));
+      return next;
+    });
+  }, [items, sharedPlans]);
+
+  const togglePlan = (planId) => { setExpandedPlans((prev) => ({ ...prev, [planId]: !prev[planId] })); };
+
+  // ── Selection helpers ──
+  const isSelected = (id) => selected[id] !== false; // default true
+  const toggleItem = (id) => setSelected((prev) => ({ ...prev, [id]: !isSelected(id) }));
+
+  const toggleAllPersonal = () => {
+    const allSelected = items.every((i) => isSelected(i.id));
+    setSelected((prev) => {
+      const next = { ...prev };
+      items.forEach((i) => { next[i.id] = !allSelected; });
+      return next;
+    });
   };
 
-  // ── Counts derived from visible data ──
-  const personalItemCount = items.length;
-  const personalTotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-  const sharedItemCount = hideShared ? 0 : sharedPlans.reduce((s, p) => s + p.items.length, 0);
-  const sharedTotal = hideShared ? 0 : sharedPlans.reduce((s, p) => s + p.items.reduce((ss, i) => ss + (i.product?.price || 0), 0), 0);
-  const visibleItemCount = personalItemCount + sharedItemCount;
-  const visibleSubtotal = personalTotal + sharedTotal;
+  const togglePlanSelection = (sp) => {
+    const allSelected = sp.items.every((i) => isSelected(`cp_${i.productId}`));
+    setSelected((prev) => {
+      const next = { ...prev };
+      sp.items.forEach((i) => { next[`cp_${i.productId}`] = !allSelected; });
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelected((prev) => {
+      const next = { ...prev };
+      items.forEach((i) => { next[i.id] = true; });
+      sharedPlans.forEach((sp) => sp.items.forEach((i) => { next[`cp_${i.productId}`] = true; }));
+      return next;
+    });
+  };
+
+  const deselectAll = () => {
+    setSelected((prev) => {
+      const next = { ...prev };
+      items.forEach((i) => { next[i.id] = false; });
+      sharedPlans.forEach((sp) => sp.items.forEach((i) => { next[`cp_${i.productId}`] = false; }));
+      return next;
+    });
+  };
+
+  // ── Derived counts ──
+  const personalItems = items;
+  const visibleShared = hideShared ? [] : sharedPlans;
+  const allVisibleItems = [
+    ...personalItems.map((i) => ({ id: i.id, price: i.price * i.qty })),
+    ...visibleShared.flatMap((sp) => sp.items.map((i) => ({ id: `cp_${i.productId}`, price: i.product?.price || 0 }))),
+  ];
+  const visibleItemCount = allVisibleItems.length;
+  const selectedItems = allVisibleItems.filter((i) => isSelected(i.id));
+  const selectedCount = selectedItems.length;
+  const selectedSubtotal = selectedItems.reduce((s, i) => s + i.price, 0);
+  const allAreSelected = allVisibleItems.length > 0 && allVisibleItems.every((i) => isSelected(i.id));
+
+  // Checkbox component
+  const Checkbox = ({ checked, onChange, className = "" }) => (
+    <button onClick={(e) => { e.stopPropagation(); onChange(); }} className={`flex-shrink-0 ${className}`}>
+      {checked
+        ? <CheckSquare size={20} className="text-[#FF9900]" />
+        : <Square size={20} className="text-gray-300 hover:text-gray-400" />
+      }
+    </button>
+  );
 
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-4">
@@ -99,14 +161,30 @@ export default function CartPage() {
         <div className="flex gap-6 flex-wrap lg:flex-nowrap">
           <div className="flex-1 min-w-0 space-y-4">
 
-            {/* ═══════ MY CART SECTION ═══════ */}
+            {/* ═══ GLOBAL SELECT ALL ═══ */}
+            {visibleItemCount > 0 && (
+              <div className="flex items-center justify-between px-1">
+                <button onClick={allAreSelected ? deselectAll : selectAll} className="flex items-center gap-2 text-sm text-[#007185] hover:text-[#C7511F]">
+                  <Checkbox checked={allAreSelected} onChange={allAreSelected ? deselectAll : selectAll} />
+                  <span>{allAreSelected ? "Deselect All" : "Select All Items"}</span>
+                </button>
+                <span className="text-xs text-[#565959]">
+                  {visibleItemCount} item{visibleItemCount !== 1 ? "s" : ""} in cart · <span className="font-medium text-[#0F1111]">{selectedCount} selected for purchase</span>
+                </span>
+              </div>
+            )}
+
+            {/* ═══ MY CART SECTION ═══ */}
             <div className="bg-white rounded shadow-sm">
               <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
-                <span className="text-sm font-medium text-[#0F1111]">My Cart ({personalItemCount} Item{personalItemCount !== 1 ? "s" : ""})</span>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={personalItems.length > 0 && personalItems.every((i) => isSelected(i.id))} onChange={toggleAllPersonal} />
+                  <span className="text-sm font-medium text-[#0F1111]">My Cart ({personalItems.length} Item{personalItems.length !== 1 ? "s" : ""})</span>
+                </div>
                 <span className="text-sm text-[#565959]">Price</span>
               </div>
 
-              {personalItemCount === 0 ? (
+              {personalItems.length === 0 ? (
                 <div className="px-5 py-8 text-center">
                   <ShoppingBag size={36} className="text-[#EAEDED] mx-auto mb-3" />
                   <p className="text-sm text-[#565959] mb-3">Your personal cart is empty</p>
@@ -114,8 +192,9 @@ export default function CartPage() {
                 </div>
               ) : (
                 <>
-                  {items.map((item) => (
-                    <div key={item.id} className="px-5 py-4 border-b border-gray-100 last:border-0 flex gap-4">
+                  {personalItems.map((item) => (
+                    <div key={item.id} className={`px-5 py-4 border-b border-gray-100 last:border-0 flex gap-4 ${!isSelected(item.id) ? "opacity-60" : ""}`}>
+                      <Checkbox checked={isSelected(item.id)} onChange={() => toggleItem(item.id)} />
                       <div className="w-24 h-24 flex-shrink-0 cursor-pointer" onClick={() => navigate(`/dp/${item.id}`)}>
                         <img src={item.thumbnail || item.image} alt={item.name} className="w-full h-full object-contain" onError={(e) => { e.target.src = "https://via.placeholder.com/96"; }} />
                       </div>
@@ -138,22 +217,16 @@ export default function CartPage() {
                       <div className="text-sm font-bold text-[#0F1111] flex-shrink-0">{formatPrice(item.price * item.qty)}</div>
                     </div>
                   ))}
-                  <div className="px-5 py-3 text-right border-t border-gray-200">
-                    <span className="text-sm text-[#0F1111]">Subtotal: <span className="font-bold">{formatPrice(personalTotal)}</span></span>
-                  </div>
                 </>
               )}
             </div>
 
-            {/* ═══════ SHARED CARTS SECTION ═══════ */}
+            {/* ═══ SHARED CARTS SECTION ═══ */}
             {sharedPlans.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2 px-1">
                   <span className="text-sm font-medium text-[#0F1111]">Shared Carts</span>
-                  <button
-                    onClick={() => setHideShared((v) => !v)}
-                    className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] transition-colors"
-                  >
+                  <button onClick={() => setHideShared((v) => !v)} className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] transition-colors">
                     {hideShared ? <><Eye size={12} /> Show Shared Carts</> : <><EyeOff size={12} /> Hide Shared Carts</>}
                   </button>
                 </div>
@@ -161,21 +234,16 @@ export default function CartPage() {
                 {!hideShared && sharedPlans.map((sp) => {
                   const isExpanded = expandedPlans[sp.planId] || false;
                   const planTotal = sp.items.reduce((s, i) => s + (i.product?.price || 0), 0);
+                  const allPlanSelected = sp.items.every((i) => isSelected(`cp_${i.productId}`));
 
                   return (
                     <div key={sp.planId} className="bg-white rounded shadow-sm mb-3 overflow-hidden">
-                      {/* Collapsed header */}
-                      <div
-                        className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                        onClick={() => togglePlan(sp.planId)}
-                      >
+                      {/* Header */}
+                      <div className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50" onClick={() => togglePlan(sp.planId)}>
                         <div className="flex items-center gap-2">
+                          <Checkbox checked={allPlanSelected} onChange={() => togglePlanSelection(sp)} />
                           {isExpanded ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
-                          <Link
-                            to={`/co-planner?id=${sp.planId}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline"
-                          >
+                          <Link to={`/co-planner?id=${sp.planId}`} onClick={(e) => e.stopPropagation()} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline">
                             {sp.name}
                           </Link>
                           <span className="text-xs text-[#565959]">
@@ -191,8 +259,10 @@ export default function CartPage() {
                           {sp.items.map((item) => {
                             const p = item.product;
                             if (!p) return null;
+                            const itemKey = `cp_${item.productId}`;
                             return (
-                              <div key={item.productId} className="px-5 py-4 border-b border-gray-100 last:border-0 flex gap-4">
+                              <div key={item.productId} className={`px-5 py-4 border-b border-gray-100 last:border-0 flex gap-4 ${!isSelected(itemKey) ? "opacity-60" : ""}`}>
+                                <Checkbox checked={isSelected(itemKey)} onChange={() => toggleItem(itemKey)} />
                                 <div className="w-24 h-24 flex-shrink-0 cursor-pointer" onClick={() => navigate(`/dp/${p.id}`)}>
                                   <img src={p.image} alt={p.name} className="w-full h-full object-contain" onError={(e) => { e.target.src = "https://via.placeholder.com/96"; }} />
                                 </div>
@@ -221,21 +291,24 @@ export default function CartPage() {
             )}
           </div>
 
-          {/* ═══════ ORDER SUMMARY SIDEBAR ═══════ */}
+          {/* ═══ CHECKOUT SIDEBAR ═══ */}
           {visibleItemCount > 0 && (
             <div className="w-full lg:w-72 flex-shrink-0">
               <div className="bg-white rounded shadow-sm p-5 sticky top-24">
                 <div className="text-[#007600] text-sm mb-2">✓ Your order qualifies for FREE Delivery.</div>
-                <div className="text-base text-[#0F1111] mb-4">
-                  Subtotal ({visibleItemCount} item{visibleItemCount !== 1 ? "s" : ""}):
-                  <span className="font-bold ml-1">{formatPrice(visibleSubtotal)}</span>
+                <div className="text-base text-[#0F1111] mb-1">
+                  Subtotal ({selectedCount} item{selectedCount !== 1 ? "s" : ""} selected):
+                  <span className="font-bold ml-1">{formatPrice(selectedSubtotal)}</span>
                 </div>
+                {selectedCount < visibleItemCount && (
+                  <p className="text-xs text-[#565959] mb-3">{visibleItemCount - selectedCount} item{(visibleItemCount - selectedCount) !== 1 ? "s" : ""} not selected</p>
+                )}
                 <label className="flex items-center gap-2 text-sm text-[#0F1111] mb-4 cursor-pointer">
                   <input type="checkbox" className="accent-[#FF9900]" />
                   This order contains a gift
                 </label>
                 <button onClick={() => navigate("/checkout")} className="w-full btn-primary py-2.5 rounded-full font-bold text-sm">
-                  Proceed to Buy
+                  Proceed to Buy ({selectedCount} Item{selectedCount !== 1 ? "s" : ""})
                 </button>
 
                 {prefs.enabled && items.length > 0 && (
@@ -262,7 +335,7 @@ export default function CartPage() {
           )}
         </div>
       ) : (
-        /* ═══════ SOON TAB ═══════ */
+        /* ═══ SOON TAB ═══ */
         <div>
           <div className="bg-gradient-to-r from-[#131921] to-[#232F3E] rounded-xl p-5 mb-4 text-white">
             <div className="flex items-center gap-2 mb-2">
