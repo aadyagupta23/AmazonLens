@@ -29,10 +29,10 @@ export const products = [
       priceStability: { score: 34, detail: "Price changed 8 times in 12 months. MRP of ₹89,999 is listed only to show a 39% 'discount' — the product has never sold at that MRP." }
     },
     images: [
-      "https://upload.wikimedia.org/wikipedia/commons/2/27/Sony_Bravia_3D_on_display_at_CES_20110106.jpg",
-      "https://upload.wikimedia.org/wikipedia/commons/6/67/Samsung_Smart_TV_2012_%28E-Series%29.jpg"
+      "https://images-na.ssl-images-amazon.com/images/P/B0C1HCJVT5.01.L.jpg",
+      "https://images-na.ssl-images-amazon.com/images/P/B0C1HCJVT5.01.L.jpg"
     ],
-    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/2/27/Sony_Bravia_3D_on_display_at_CES_20110106.jpg",
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B0C1HCJVT5.01.L.jpg",
     description:
       "Experience stunning 4K HDR picture quality with X-Reality PRO and Triluminos Pro display technology. Google TV gives you easy access to your favourite streaming apps with voice control via Alexa or Google Assistant.",
     features: [
@@ -177,9 +177,9 @@ export const products = [
     spikePriceMonths: [3, 9],
     priceHistory: [18999, 18999, 12999, 11999, 8999, 8999, 8999, 8999, 8999, 11999, 8999, 8999],
     images: [
-      "https://upload.wikimedia.org/wikipedia/commons/1/17/Home_Theater_Speakers_1_2019-06-22.jpg"
+      "https://images-na.ssl-images-amazon.com/images/P/B0B6441RNK.01.L.jpg"
     ],
-    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/1/17/Home_Theater_Speakers_1_2019-06-22.jpg",
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B0B6441RNK.01.L.jpg",
     description: "Experience powerful home cinema audio with JBL Pro Sound. The wireless subwoofer delivers deep bass without cable clutter.",
     features: [
       "2.1 Channel with wireless subwoofer",
@@ -225,9 +225,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [79900, 79900, 79900, 74900, 71999, 71999, 69999, 69999, 69999, 69999, 69999, 69999],
     images: [
-      "https://m.media-amazon.com/images/I/61bK6PMOC3L._AC_SL1500_.jpg"
+      "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=400&fit=crop&auto=format"
     ],
-    thumbnail: "https://m.media-amazon.com/images/I/61bK6PMOC3L._AC_SL1500_.jpg",
+    thumbnail: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=400&fit=crop&auto=format",
     description: "iPhone 15 features a durable colour-infused glass and aluminium design. Dynamic Island keeps you in touch with activities like sports scores, ride-sharing, and more.",
     features: [
       "6.1-inch Super Retina XDR display",
@@ -439,9 +439,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [750, 749, 699, 649, 649, 649, 649, 649, 699, 649, 649, 649],
     images: [
-      "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg"
+      "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg"
     ],
-    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg",
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg",
     description: "Nescafé Gold Blend is a premium instant coffee made from a blend of Arabica and Robusta beans, expertly roasted to deliver a rich, smooth flavour.",
     features: [
       "Arabica and Robusta blend",
@@ -485,9 +485,9 @@ export const products = [
     spikePriceMonths: [2, 8],
     priceHistory: [56900, 48999, 56900, 39999, 34999, 32999, 32999, 32999, 56900, 32999, 32999, 32999],
     images: [
-      "https://upload.wikimedia.org/wikipedia/commons/6/67/Samsung_Smart_TV_2012_%28E-Series%29.jpg"
+      "https://images-na.ssl-images-amazon.com/images/P/B091HSH7BM.01.L.jpg"
     ],
-    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/6/67/Samsung_Smart_TV_2012_%28E-Series%29.jpg",
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B091HSH7BM.01.L.jpg",
     description: "Samsung Crystal 4K processor with 4K UHD upscaling. Tizen Smart TV with access to Netflix, Prime Video, and more.",
     features: [
       "43 inch Crystal 4K display",
@@ -534,9 +534,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [3200, 2800, 2499, 1999, 1895, 1895, 1895, 1895, 1895, 1895, 1895, 1895],
     images: [
-      "https://upload.wikimedia.org/wikipedia/commons/d/d4/Indian_Cooker.jpg"
+      "https://images-na.ssl-images-amazon.com/images/P/B081GKGB24.01.L.jpg"
     ],
-    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/d/d4/Indian_Cooker.jpg",
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B081GKGB24.01.L.jpg",
     description: "Hard anodised for durability and even heat distribution. Suitable for all stovetops.",
     features: [
       "5 litre capacity",
@@ -579,9 +579,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [7999, 7999, 6999, 6999, 6999, 5999, 6999, 6999, 6999, 6999, 6999, 6999],
     images: [
-      "https://upload.wikimedia.org/wikipedia/commons/2/21/FireTV_Stick_3rd_Gen.jpg"
+      "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=400&fit=crop&auto=format"
     ],
-    thumbnail: "https://upload.wikimedia.org/wikipedia/commons/2/21/FireTV_Stick_3rd_Gen.jpg",
+    thumbnail: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=400&fit=crop&auto=format",
     description: "Fire TV Stick 4K Max supports Wi-Fi 6E for lightning-fast streaming. Access 1.5 million movies and TV episodes.",
     features: [
       "4K + HDR10+ streaming",
@@ -625,8 +625,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [599, 450, 350, 299, 299, 299, 299, 299, 299, 299, 299, 299],
-    images: ["https://placehold.co/600x400?text=EcoSmile+Bamboo+Toothbrush"],
-    thumbnail: "https://placehold.co/150x150?text=EcoSmile+Toothbrush",
+    images: ["https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=400&h=400&fit=crop&auto=format",
     description: "100% biodegradable organic bamboo handles with soft charcoal-infused bristles for gentle and sustainable dental care.",
     features: [
       "Biodegradable natural bamboo handles",
@@ -667,8 +667,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [4, 5],
     priceHistory: [1199, 1199, 1050, 949, 949, 949, 949, 949, 949, 949, 949, 949],
-    images: ["https://placehold.co/600x400?text=Milton+Water+Bottle+1L"],
-    thumbnail: "https://placehold.co/150x150?text=Milton+Bottle",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B00MIYM0VS.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00MIYM0VS.01.L.jpg",
     description: "Double-walled vacuum insulated flask keeping drinks hot or cold for up to 24 hours. Durable SS 304 grade interior.",
     features: [
       "24 hours hot/cold retention",
@@ -709,8 +709,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [2, 3],
     priceHistory: [420, 420, 390, 360, 360, 360, 360, 360, 360, 360, 360, 360],
-    images: ["https://placehold.co/600x400?text=Classmate+Notebook+Pack"],
-    thumbnail: "https://placehold.co/150x150?text=Classmate+Notebook",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B00P7SMC4C.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00P7SMC4C.01.L.jpg",
     description: "Eco-friendly notebooks made using recycled fibers with smooth, high-quality ozone-treated elemental chlorine-free paper.",
     features: [
       "Soft bound multi-pack covers",
@@ -752,8 +752,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [999, 549, 499, 499, 499, 549, 499, 499, 499, 499, 499, 499],
-    images: ["https://placehold.co/600x400?text=Bewakoof+Organic+T-Shirt"],
-    thumbnail: "https://placehold.co/150x150?text=Bewakoof+TShirt",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B08PL31LXW.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B08PL31LXW.01.L.jpg",
     description: "Comfortable regular fit basic t-shirt spun entirely from sustainably sourced 100% organic cotton fabrics.",
     features: [
       "100% Certified organic cotton",
@@ -794,8 +794,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [699, 450, 349, 349, 349, 349, 349, 349, 349, 349, 349, 349],
-    images: ["https://placehold.co/600x400?text=Amazon+Basics+Grocery+Bags"],
-    thumbnail: "https://placehold.co/150x150?text=Basics+Bags",
+    images: ["https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=400&fit=crop&auto=format",
     description: "Heavy-duty canvas-feel washable tote bags built to replace single-use plastic grocery alternatives effortlessly.",
     features: [
       "Reinforced multi-stitch handles",
@@ -836,8 +836,8 @@ export const products = [
     waitReason: "Frequent lightning deals bring this down to ₹499 monthly",
     spikePriceMonths: [0, 6],
     priceHistory: [1299, 799, 699, 599, 599, 499, 599, 599, 499, 599, 599, 599],
-    images: ["https://placehold.co/600x400?text=Wipro+12W+Smart+Bulb"],
-    thumbnail: "https://placehold.co/150x150?text=Wipro+Bulb",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B0G4RNWMMK.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B0G4RNWMMK.01.L.jpg",
     description: "Control your lighting arrays wirelessly through Wi-Fi. Features 16 million colors, dimming functions, and full smart home integration.",
     features: [
       "16 Million RGB color options",
@@ -879,8 +879,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [2999, 1799, 1499, 1499, 1499, 1499, 1499, 1499, 1499, 1499, 1499, 1499],
-    images: ["https://placehold.co/600x400?text=Ambrane+Solar+Power+Bank"],
-    thumbnail: "https://placehold.co/150x150?text=Ambrane+Powerbank",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B0CZDSF1RS.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B0CZDSF1RS.01.L.jpg",
     description: "Rugged exterior portable power unit outfitted with a backup solar panel array and bright emergency dual flashlights.",
     features: [
       "20000mAh Lithium Polymer capacity",
@@ -921,8 +921,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [699, 549, 449, 449, 449, 449, 449, 449, 449, 449, 449, 449],
-    images: ["https://placehold.co/600x400?text=Gala+Eco+Cleaning+Kit"],
-    thumbnail: "https://placehold.co/150x150?text=Gala+Kit",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B08Z9PRV7Z.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B08Z9PRV7Z.01.L.jpg",
     description: "Complete household broom and dustpan companion system utilizing recycled structural plastics paired with heavy-duty microfiber cleaning cloths.",
     features: [
       "Ergonomic extended long reach handles",
@@ -964,8 +964,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [10],
     priceHistory: [17999, 9499, 8999, 8499, 8499, 8499, 8499, 8499, 8499, 8999, 8499, 8499],
-    images: ["https://placehold.co/600x400?text=GreenSoul+Ergonomic+Chair"],
-    thumbnail:"https://images.unsplash.com/photo-1505843490701-5be5d3b3ef0c",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B06XDJLZ8F.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B06XDJLZ8F.01.L.jpg",
     description: "Breathable mesh back structure featuring completely adjustable lumbar support pads, dynamic armrests, and dynamic tilt mechanisms.",
     features: [
       "Highly breathable industrial mesh backing",
@@ -1006,8 +1006,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [1499, 899, 799, 699, 699, 699, 699, 699, 699, 699, 699, 699],
-    images: ["https://placehold.co/600x400?text=Portronics+Laptop+Stand"],
-    thumbnail: "https://placehold.co/150x150?text=Portronics+Stand",
+    images: ["https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop&auto=format",
     description: "Foldable design premium aluminum framing providing multi-level viewing angle adjustments to relieve posture fatigue.",
     features: [
       "Ventilated open-frame cooling construction",
@@ -1048,8 +1048,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [1999, 1499, 1299, 1199, 1199, 1199, 1199, 1199, 1199, 1199, 1199, 1199],
-    images: ["https://placehold.co/600x400?text=Philips+LED+Study+Lamp"],
-    thumbnail:"https://images.unsplash.com/photo-1507473885765-e6ed057f782c",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B016VYAWA6.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B016VYAWA6.01.L.jpg",
     description: "Eye-comfort integrated diffusers built inside an adjustable gooseneck body featuring step-less capacitive touch brightness controls.",
     features: [
       "Integrated Philips EyeComfort blue-cut tech",
@@ -1090,8 +1090,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [799, 499, 399, 399, 399, 399, 399, 399, 399, 399, 399, 399],
-    images: ["https://placehold.co/600x400?text=Amazon+Basics+Cable+Management"],
-    thumbnail:"https://images.unsplash.com/photo-1516116216624-53e697fedbea",
+    images: ["https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=400&fit=crop&auto=format",
     description: "Flexible industrial neoprene cord organizers outfitted with zipper mechanics and custom DIY cut exit-holes for cable clusters.",
     features: [
       "Form-fitting durable neoprene fabrics",
@@ -1132,8 +1132,8 @@ export const products = [
     waitReason: "Holiday sales regularly lower mechanical frames by 15%",
     spikePriceMonths: [11],
     priceHistory: [4999, 3299, 2999, 2899, 2899, 2899, 2899, 2699, 2899, 2899, 2899, 2899],
-    images: ["https://placehold.co/600x400?text=Redragon+Mechanical+Keyboard"],
-    thumbnail:"https://images.unsplash.com/photo-1505843490701-5be5d3b3ef0c",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B019O8YZ4A.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B019O8YZ4A.01.L.jpg",
     description: "Solid aircraft-grade aluminum construct layout fitted with dustproof linear quiet mechanical switches and bright custom RGB backlight profiles.",
     features: [
       "Linear quiet Red mechanical switch elements",
@@ -1174,8 +1174,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [995, 749, 649, 649, 649, 649, 649, 649, 649, 649, 649, 649],
-    images: ["https://placehold.co/600x400?text=Logitech+M235+Wireless+Mouse"],
-    thumbnail:"https://images.unsplash.com/photo-1527814050087-3793815479db",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B004IO5BMQ.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B004IO5BMQ.01.L.jpg",
     description: "Reliable plug-and-forget wireless tracking connection. Ergonomic contouring shapes engineered perfectly for all-day office comfort.",
     features: [
       "12-month average single AA battery life",
@@ -1216,8 +1216,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [1],
     priceHistory: [13500, 8499, 7999, 7999, 7999, 7999, 7999, 7999, 8299, 7999, 7999, 7999],
-    images: ["https://placehold.co/600x400?text=LG+24-inch+IPS+Monitor"],
-    thumbnail:"https://images.unsplash.com/photo-1527443154391-507e9dc6c5cc",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B0CKQWXVV4.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B0CKQWXVV4.01.L.jpg",
     description: "Vibrant IPS borderless viewing experience featuring AMD FreeSync integration and dynamic reader modes for optimal workspace focus.",
     features: [
       "Three-sided virtually borderless display",
@@ -1259,8 +1259,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [3295, 2299, 1999, 1999, 1999, 1999, 1999, 1999, 1999, 1999, 1999, 1999],
-    images: ["https://placehold.co/600x400?text=Logitech+C270+Webcam"],
-    thumbnail: "https://placehold.co/150x150?text=Logitech+Webcam",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B004FHO5Y6.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B004FHO5Y6.01.L.jpg",
     description: "Crisp widescreen calls featuring automatic light correction algorithms alongside built-in noise filtering capture channels.",
     features: [
       "Fluid HD video tracking loops",
@@ -1301,8 +1301,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [4999, 3599, 3299, 3299, 3299, 3299, 3299, 3299, 3299, 3299, 3299, 3299],
-    images: ["https://placehold.co/600x400?text=Anker+USB-C+Hub+7-in-1"],
-    thumbnail: "https://placehold.co/150x150?text=Anker+Hub",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B08NDGD2V5.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B08NDGD2V5.01.L.jpg",
     description: "Massive hub capacity extension housing media pipelines, high-power charging conduits, and fast SD storage transfers.",
     features: [
       "85W output Pass-Through Power Delivery routing",
@@ -1343,8 +1343,8 @@ export const products = [
     waitReason: "Prime day drops this option near ₹4,799 frequently",
     spikePriceMonths: [3, 7],
     priceHistory: [7999, 6499, 5999, 5499, 5499, 4799, 5499, 5499, 5499, 5999, 5499, 5499],
-    images: ["https://placehold.co/600x400?text=JBL+Tune+760NC+Headphones"],
-    thumbnail: "https://placehold.co/150x150?text=JBL+Headphones",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B09TCCZH9L.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B09TCCZH9L.01.L.jpg",
     description: "Isolate external acoustic spaces via active cancellation technologies while preserving powerful trademark JBL Pure Bass response signatures.",
     features: [
       "Active Noise Cancelling isolated filtering",
@@ -1386,8 +1386,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [999, 549, 449, 449, 449, 449, 449, 449, 449, 449, 449, 449],
-    images: ["https://placehold.co/600x400?text=Cosmic+Byte+Desk+Mat+XL"],
-    thumbnail: "https://placehold.co/150x150?text=Desk+Mat+XL",
+    images: ["https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400&h=400&fit=crop&auto=format",
     description: "Expansive layout performance cloth mousepad featuring dense anti-fray braided stitch borders and natural non-slip rubber grip footprints.",
     features: [
       "Ultra-smooth tracking micro-weave surfaces",
@@ -1428,8 +1428,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [9, 10],
     priceHistory: [11950, 7999, 6999, 6499, 6499, 6499, 6499, 6499, 6499, 7499, 6499, 6499],
-    images: ["https://placehold.co/600x400?text=Philips+Digital+Air+Fryer"],
-    thumbnail: "https://placehold.co/150x150?text=Philips+Airfryer",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B097RJ867P.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B097RJ867P.01.L.jpg",
     description: "Rapid Air technology circulating superheated airflow patterns to create crisp textures with up to 90 percent reduced fat needs.",
     features: [
       "Patented unique Rapid Air swirl patterns",
@@ -1470,8 +1470,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [1395, 899, 749, 749, 749, 749, 749, 749, 749, 749, 749, 749],
-    images: ["https://placehold.co/600x400?text=Prestige+Electric+Kettle+1.5L"],
-    thumbnail: "https://placehold.co/150x150?text=Prestige+Kettle",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B01MQZ7J8K.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B01MQZ7J8K.01.L.jpg",
     description: "Fast heating action inside a high-gloss grade stainless steel frame complete with automatic dry-boil power cutoffs.",
     features: [
       "Automatic single touch safety cutoff switch",
@@ -1512,8 +1512,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [3195, 1999, 1699, 1599, 1599, 1599, 1599, 1599, 1599, 1599, 1599, 1599],
-    images: ["https://placehold.co/600x400?text=Pigeon+Induction+Cooktop"],
-    thumbnail: "https://placehold.co/150x150?text=Pigeon+Induction",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B012VFOQDI.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B012VFOQDI.01.L.jpg",
     description: "Compact kitchen induction range outfitted with Indian menu presets, dual voltage monitoring, and crystal glass top plates.",
     features: [
       "7 built-in essential Indian cooking presets",
@@ -1554,8 +1554,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [899, 599, 499, 499, 499, 499, 499, 499, 499, 499, 499, 499],
-    images: ["https://placehold.co/600x400?text=Cello+Laundry+Basket"],
-    thumbnail: "https://placehold.co/150x150?text=Cello+Basket",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B01KXQ8C46.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B01KXQ8C46.01.L.jpg",
     description: "High durability woven style ventilation matrix molded from moisture-proof virgin polymers to safely isolate family laundry storage.",
     features: [
       "Breathable air-circulation knit simulation design",
@@ -1596,8 +1596,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [1500, 1100, 999, 899, 899, 899, 899, 899, 899, 899, 899, 899],
-    images: ["https://placehold.co/600x400?text=Solimo+Storage+Drawers"],
-    thumbnail: "https://placehold.co/150x150?text=Solimo+Drawers",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B09WYF7VJP.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B09WYF7VJP.01.L.jpg",
     description: "Vertical stacking space-saving structural dynamic drawer sets perfect for cosmetics, tools, document filings, or kids accessories.",
     features: [
       "4 spacious independent pulling drawers",
@@ -1638,8 +1638,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [1599, 999, 899, 849, 849, 849, 849, 849, 849, 849, 849, 849],
-    images: ["https://placehold.co/600x400?text=Wipro+Bedside+Lamp"],
-    thumbnail: "https://placehold.co/150x150?text=Wipro+Lamp",
+    images: ["https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=400&fit=crop&auto=format",
     description: "Minimalist geometric desktop lighting system providing warm amber glow parameters with color temperature matching profiles.",
     features: [
       "3 step-change integrated color temperatures",
@@ -1681,8 +1681,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [4499, 1699, 1499, 1299, 1299, 1299, 1299, 1299, 1299, 1399, 1299, 1299],
-    images: ["https://placehold.co/600x400?text=Razer+DeathAdder+Mouse"],
-    thumbnail: "https://placehold.co/150x150?text=Razer+Mouse",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B092R5MCB3.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B092R5MCB3.01.L.jpg",
     description: "Iconic ergonomic tracking mouse layout built with specialized hyper-response buttons and mechanical click architectures.",
     features: [
       "True 6,400 DPI high-performance optical lens",
@@ -1723,8 +1723,8 @@ export const products = [
     waitReason: "Holiday gaming sale windows bring this down by another 12%",
     spikePriceMonths: [11],
     priceHistory: [5299, 4100, 3899, 3699, 3699, 3299, 3699, 3699, 3699, 3699, 3699, 3699],
-    images: ["https://placehold.co/600x400?text=Corsair+K55+RGB+Keyboard"],
-    thumbnail: "https://placehold.co/150x150?text=Corsair+Keyboard",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B08Y78FFR9.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B08Y78FFR9.01.L.jpg",
     description: "Light up your desktop workspace layout via customizable multi-zone RGB paths while programming macro functions easily.",
     features: [
       "6 completely dedicated custom programmable macro key blocks",
@@ -1765,8 +1765,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [2, 8],
     priceHistory: [24500, 16999, 15499, 13999, 13999, 13999, 13999, 13999, 15999, 13999, 13999, 13999],
-    images: ["https://placehold.co/600x400?text=Samsung+Odyssey+27+Monitor"],
-    thumbnail: "https://placehold.co/150x150?text=Odyssey+G3",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B0D9KD6722.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B0D9KD6722.01.L.jpg",
     description: "Blazing fast tracking loops engineered on an adjustable stand footprint maximizing smooth competitive gameplay refresh parameters.",
     features: [
       "144Hz high professional refresh tracking matrices",
@@ -1808,8 +1808,8 @@ export const products = [
     waitReason: "Prime Day drops Amazon native hardware categories up to 35%",
     spikePriceMonths: [],
     priceHistory: [5499, 5499, 4999, 4499, 4499, 3499, 4499, 4499, 4499, 4499, 4499, 4499],
-    images: ["https://placehold.co/600x400?text=Amazon+Echo+Dot+5th+Gen"],
-    thumbnail: "https://placehold.co/150x150?text=Echo+Dot+5th",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B09B93ZDG4.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B09B93ZDG4.01.L.jpg",
     description: "Our best-sounding Echo Dot yet. Enjoy clearer vocals, deeper bass, and vibrant sound in any room, along with ambient temperature sensors.",
     features: [
       "Deep clear audio sound profiles with Alexa automation",
@@ -1851,8 +1851,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [2290, 1199, 999, 899, 899, 899, 899, 899, 899, 899, 899, 899],
-    images: ["https://placehold.co/600x400?text=Wipro+16A+Smart+Plug"],
-    thumbnail: "https://placehold.co/150x150?text=Wipro+Smart+Plug",
+    images: ["https://images-na.ssl-images-amazon.com/images/P/B09SQDF3HJ.01.L.jpg"],
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B09SQDF3HJ.01.L.jpg",
     description: "Convert large power-draw heavy home devices into automated wireless arrays while tracking power load statistics directly through your phone.",
     features: [
       "Real-time diagnostic energy-meter consumption tracking",
@@ -2051,7 +2051,7 @@ export const senseItems = [
     avgCycleDays: 28,
     daysOverdue: 0,
     urgency: "Due today",
-    thumbnail: "https://placehold.co/400x400/8B1A1A/FFFFFF?font=montserrat&text=Nescafe+Gold+200g"
+    thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg"
   }
 ];
 
