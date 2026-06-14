@@ -179,7 +179,7 @@ function calculateHealthScore(plan) {
   else if (stats.totalSpent + stats.totalPlanned > plan.budget) score -= 10;
 
   // Completion rate (reward progress)
-  const purchased = plan.items.filter((i) => i.status === "purchased" || i.status === "delivered").length;
+  const purchased = plan.items.filter((i) => i.status === "purchased" || i.status === "delivered" || i.status === "partially_purchased").length;
   const total = plan.items.length;
   if (total > 0) {
     const completionPct = purchased / total;
@@ -197,23 +197,37 @@ function calculateHealthScore(plan) {
   return Math.max(0, Math.min(100, score));
 }
 
+function computeItemStatus(item) {
+  // Auto-compute status from quantities (preserve "delivered" if manually set)
+  if (item.status === "delivered") return "delivered";
+  const qNeeded = item.quantityNeeded || 1;
+  const qPurchased = item.quantityPurchased || 0;
+  if (qPurchased <= 0) return "need_to_buy";
+  if (qPurchased > 0 && qPurchased < qNeeded) return "partially_purchased";
+  return "purchased"; // qPurchased >= qNeeded
+}
+
 function getPlanStats(plan) {
   const enrichedItems = plan.items.map((item) => ({ ...item, product: getProduct(item.productId) }));
   const totalSpent = enrichedItems
     .filter((i) => i.status === "purchased" || i.status === "delivered")
-    .reduce((s, i) => s + (i.product?.price || 0), 0);
+    .reduce((s, i) => s + (i.product?.price || 0) * (i.quantityPurchased || 1), 0);
   const totalPlanned = enrichedItems
     .filter((i) => i.status !== "purchased" && i.status !== "delivered")
-    .reduce((s, i) => s + (i.product?.price || 0), 0);
+    .reduce((s, i) => s + (i.product?.price || 0) * (i.quantityNeeded || 1), 0);
   const remaining = plan.budget - totalSpent - totalPlanned;
 
   const memberSpending = {};
   plan.members.forEach((m) => { memberSpending[m.name] = 0; });
   enrichedItems.forEach((i) => {
     if (i.assignedTo && memberSpending[i.assignedTo] !== undefined) {
-      memberSpending[i.assignedTo] += i.product?.price || 0;
+      memberSpending[i.assignedTo] += (i.product?.price || 0) * (i.quantityPurchased || (i.status === "purchased" || i.status === "delivered" ? 1 : 0));
     }
   });
+
+  // Quantity stats
+  const totalNeeded = plan.items.reduce((s, i) => s + (i.quantityNeeded || 1), 0);
+  const totalPurchased = plan.items.reduce((s, i) => s + (i.quantityPurchased || 0), 0);
 
   return {
     totalSpent,
@@ -225,15 +239,24 @@ function getPlanStats(plan) {
     overBudget: totalSpent > plan.budget,
     perMemberBudget: plan.members.length > 0 ? Math.round(plan.budget / plan.members.length) : plan.budget,
     memberSpending,
-    pendingCount: plan.items.filter((i) => i.status === "need_to_buy").length,
+    pendingCount: plan.items.filter((i) => i.status === "need_to_buy" || i.status === "partially_purchased").length,
+    totalNeeded,
+    totalPurchased,
   };
 }
 
 function enrichPlan(plan) {
   const enrichedItems = plan.items.map((item) => {
     const product = getProduct(item.productId);
+    // Backward compatibility: default quantity fields
+    const quantityNeeded = item.quantityNeeded || 1;
+    const quantityPurchased = item.quantityPurchased || 0;
+    const status = computeItemStatus(item);
     return {
       ...item,
+      quantityNeeded,
+      quantityPurchased,
+      status,
       product: product || { id: item.productId, name: item.productId, price: 0, image: null, category: "Unknown", trustScore: 0, rating: 0, reviewCount: 0 },
     };
   });
@@ -260,8 +283,15 @@ async function enrichPlanAsync(plan) {
   // Now enrich — if product still not found, provide a stub so items never vanish
   const enrichedItems = plan.items.map((item) => {
     const product = getProduct(item.productId);
+    // Backward compatibility: default quantity fields
+    const quantityNeeded = item.quantityNeeded || 1;
+    const quantityPurchased = item.quantityPurchased || 0;
+    const status = computeItemStatus(item);
     return {
       ...item,
+      quantityNeeded,
+      quantityPurchased,
+      status,
       product: product || { id: item.productId, name: item.productId, price: 0, image: null, category: "Unknown", trustScore: 0, rating: 0, reviewCount: 0 },
     };
   });
@@ -424,13 +454,23 @@ router.post("/:planId/add-item", async (req, res) => {
   const plan = plans.get(req.params.planId);
   if (!plan) return res.status(404).json({ error: "Plan not found" });
 
-  const { productId, memberName, priority, neededBy } = req.body;
+  const { productId, memberName, priority, neededBy, quantity } = req.body;
+  const addQuantity = quantity || 1;
   const product = await getProductAsync(productId);
   if (!product) return res.status(404).json({ error: "Product not found" });
 
-  // Duplicate check (exact)
+  // Duplicate check (exact) — only block if added by ANOTHER member
   if (plan.items.some((i) => i.productId === productId)) {
     const existing = plan.items.find((i) => i.productId === productId);
+    // Same member can add again — increase quantityNeeded
+    if (existing.addedBy === memberName || existing.assignedTo === memberName) {
+      const oldQty = existing.quantityNeeded || 1;
+      existing.quantityNeeded = oldQty + addQuantity;
+      existing.status = computeItemStatus(existing);
+      addActivity(plan, `Increased quantity for "${product.name}" (${oldQty} → ${existing.quantityNeeded})`, memberName || "Anonymous", { productId });
+      return res.json({ plan: enrichPlan(plan), quantityIncreased: true });
+    }
+    // Different member — return 409 with details and canIncreaseQuantity flag
     const isPurchased = existing.status === "purchased" || existing.status === "delivered";
     const statusMsg = isPurchased
       ? "This item has already been purchased for this Co-Plan."
@@ -440,15 +480,18 @@ router.post("/:planId/add-item", async (req, res) => {
       message: `${statusMsg} (Added by ${existing.addedBy})`,
       existingItem: { ...existing, product: getProduct(existing.productId) || product },
       isPurchased,
+      canIncreaseQuantity: !isPurchased,
+      currentQuantity: existing.quantityNeeded || 1,
+      addedBy: existing.addedBy,
     });
   }
 
-  // Fuzzy duplicate check
+  // Fuzzy duplicate check — only warn if added by another member
   const fuzzyDup = plan.items.find((i) => {
     const p = getProduct(i.productId);
     return p && fuzzyMatch(p.name, product.name) && p.id !== productId;
   });
-  if (fuzzyDup) {
+  if (fuzzyDup && fuzzyDup.addedBy !== memberName) {
     const dupProduct = getProduct(fuzzyDup.productId) || { name: fuzzyDup.productId };
     const isPurchased = fuzzyDup.status === "purchased" || fuzzyDup.status === "delivered";
     return res.status(409).json({
@@ -462,6 +505,8 @@ router.post("/:planId/add-item", async (req, res) => {
 
   plan.items.push({
     productId,
+    quantityNeeded: addQuantity,
+    quantityPurchased: 0,
     status: "need_to_buy",
     assignedTo: null,
     addedBy: memberName || "Anonymous",
@@ -470,10 +515,11 @@ router.post("/:planId/add-item", async (req, res) => {
     neededBy: neededBy || null,
     comments: [],
     votes: 0,
+    downvotes: 0,
     split: null,
   });
 
-  addActivity(plan, `Added "${product.name}"`, memberName || "Anonymous", { productId });
+  addActivity(plan, `Added "${product.name}" (qty: ${addQuantity})`, memberName || "Anonymous", { productId });
   res.json({ plan: enrichPlan(plan) });
 });
 
@@ -483,7 +529,7 @@ router.post("/:planId/add-item-force", async (req, res) => {
   const plan = plans.get(req.params.planId);
   if (!plan) return res.status(404).json({ error: "Plan not found" });
 
-  const { productId, memberName, priority, neededBy } = req.body;
+  const { productId, memberName, priority, neededBy, quantity } = req.body;
   const product = await getProductAsync(productId);
   if (!product) return res.status(404).json({ error: "Product not found" });
 
@@ -493,6 +539,8 @@ router.post("/:planId/add-item-force", async (req, res) => {
 
   plan.items.push({
     productId,
+    quantityNeeded: quantity || 1,
+    quantityPurchased: 0,
     status: "need_to_buy",
     assignedTo: null,
     addedBy: memberName || "Anonymous",
@@ -501,11 +549,55 @@ router.post("/:planId/add-item-force", async (req, res) => {
     neededBy: neededBy || null,
     comments: [],
     votes: 0,
+    downvotes: 0,
     split: null,
   });
 
   addActivity(plan, `Added "${product.name}" (override)`, memberName || "Anonymous", { productId });
   res.json({ plan: enrichPlan(plan) });
+});
+
+// ─── POST /api/co-planner/:planId/increase-quantity ──────────────────────────
+router.post("/:planId/increase-quantity", async (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  const { productId, additionalQuantity, memberName } = req.body;
+  const item = plan.items.find((i) => i.productId === productId);
+  if (!item) return res.status(404).json({ error: "Item not in plan" });
+
+  const addQty = additionalQuantity || 1;
+  const oldQty = item.quantityNeeded || 1;
+  item.quantityNeeded = Math.max(1, oldQty + addQty);
+  item.status = computeItemStatus(item);
+
+  const product = await getProductAsync(productId);
+  addActivity(plan, `${memberName || "Someone"} increased quantity for "${product?.name || productId}" (${oldQty} → ${item.quantityNeeded})`, memberName || "Anonymous", { productId });
+
+  res.json({ plan: await enrichPlanAsync(plan) });
+});
+
+// ─── POST /api/co-planner/:planId/mark-purchased ─────────────────────────────
+router.post("/:planId/mark-purchased", async (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  const { productId, purchasedCount, memberName } = req.body;
+  const item = plan.items.find((i) => i.productId === productId);
+  if (!item) return res.status(404).json({ error: "Item not in plan" });
+
+  const addCount = purchasedCount || 1;
+  const oldPurchased = item.quantityPurchased || 0;
+  item.quantityPurchased = Math.max(0, oldPurchased + addCount);
+  item.status = computeItemStatus(item);
+
+  const product = await getProductAsync(productId);
+  const action = addCount > 0
+    ? `Marked ${addCount} of "${product?.name || productId}" as purchased (${oldPurchased} → ${item.quantityPurchased})`
+    : `Adjusted purchased count for "${product?.name || productId}" (${oldPurchased} → ${item.quantityPurchased})`;
+  addActivity(plan, action, memberName || "System", { productId });
+
+  res.json({ plan: await enrichPlanAsync(plan) });
 });
 
 // ─── POST /api/co-planner/:planId/assign ─────────────────────────────────────
@@ -536,12 +628,20 @@ router.post("/:planId/update-status", async (req, res) => {
   const item = plan.items.find((i) => i.productId === productId);
   if (!item) return res.status(404).json({ error: "Item not in plan" });
 
-  const validStatuses = ["need_to_buy", "assigned", "purchased", "delivered"];
-  if (!validStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
+  // Only allow manual "delivered" status override; other statuses are auto-computed from quantities
+  if (status === "delivered") {
+    item.status = "delivered";
+  } else if (status === "need_to_buy") {
+    // Allow resetting — set quantityPurchased to 0
+    item.quantityPurchased = 0;
+    item.status = computeItemStatus(item);
+  } else {
+    // For other statuses, recompute from quantities
+    item.status = computeItemStatus(item);
+  }
 
-  item.status = status;
   const product = await getProductAsync(productId);
-  addActivity(plan, `Marked "${product?.name || productId}" as ${status.replace(/_/g, " ")}`, memberName || "System", { productId });
+  addActivity(plan, `Marked "${product?.name || productId}" as ${(item.status).replace(/_/g, " ")}`, memberName || "System", { productId });
 
   res.json({ plan: await enrichPlanAsync(plan) });
 });

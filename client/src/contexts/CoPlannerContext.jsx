@@ -11,6 +11,7 @@ export function CoPlannerProvider({ children }) {
   const [showPlanPicker, setShowPlanPicker] = useState(false);
   const [pendingProduct, setPendingProduct] = useState(null); // product waiting to be added
   const [dashboardResetKey, setDashboardResetKey] = useState(0);
+  const [lastAddedProductId, setLastAddedProductId] = useState(null); // for green "Added" feedback
 
   const memberName = user?.name || "You";
 
@@ -124,17 +125,17 @@ export function CoPlannerProvider({ children }) {
   }, [trackPlan]);
 
   // Add product to a specific plan
-  const addToPlan = useCallback(async (planId, productId) => {
+  const addToPlan = useCallback(async (planId, productId, quantity) => {
     try {
       const res = await fetch(`${API}/api/co-planner/${planId}/add-item`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, memberName }),
+        body: JSON.stringify({ productId, memberName, quantity: quantity || 1 }),
       });
       const data = await res.json();
       if (!res.ok) {
         if (data.error === "duplicate" || data.error === "similar_exists") {
-          return { error: true, message: data.message, existingItem: data.existingItem };
+          return { error: true, message: data.message, existingItem: data.existingItem, canIncreaseQuantity: data.canIncreaseQuantity, currentQuantity: data.currentQuantity, addedBy: data.addedBy };
         }
         // Plan not found on server — remove stale plan from local tracking
         if (res.status === 404) {
@@ -146,7 +147,7 @@ export function CoPlannerProvider({ children }) {
       }
       if (data.plan) {
         setActivePlan(data.plan);
-        return { success: true, plan: data.plan };
+        return { success: true, plan: data.plan, quantityIncreased: data.quantityIncreased };
       }
       return { error: true, message: "Unexpected response" };
     } catch (err) {
@@ -161,11 +162,12 @@ export function CoPlannerProvider({ children }) {
   }, []);
 
   // Complete the add after plan is selected
-  const confirmAddToPlan = useCallback(async (planId) => {
+  const confirmAddToPlan = useCallback(async (planId, quantity) => {
     if (!pendingProduct) return;
-    const result = await addToPlan(planId, pendingProduct.id);
+    const result = await addToPlan(planId, pendingProduct.id, quantity);
     // Only close the picker on success — keep it open on error so user can pick another plan
     if (result?.success) {
+      setLastAddedProductId(pendingProduct.id);
       setPendingProduct(null);
       setShowPlanPicker(false);
     }
@@ -200,6 +202,38 @@ export function CoPlannerProvider({ children }) {
     if (activePlan?.id === planId) setActivePlan(null);
   }, [memberName, activePlan]);
 
+  // Increase quantity for an existing item
+  const increaseQuantity = useCallback(async (planId, productId, additionalQuantity) => {
+    try {
+      const res = await fetch(`${API}/api/co-planner/${planId}/increase-quantity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, additionalQuantity, memberName }),
+      });
+      const data = await res.json();
+      if (data.plan) setActivePlan(data.plan);
+      return data;
+    } catch (err) {
+      return { error: true, message: "Network error" };
+    }
+  }, [memberName]);
+
+  // Mark purchased count for an item
+  const markPurchased = useCallback(async (planId, productId, purchasedCount) => {
+    try {
+      const res = await fetch(`${API}/api/co-planner/${planId}/mark-purchased`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, purchasedCount, memberName }),
+      });
+      const data = await res.json();
+      if (data.plan) setActivePlan(data.plan);
+      return data;
+    } catch (err) {
+      return { error: true, message: "Network error" };
+    }
+  }, [memberName]);
+
   return (
     <CoPlannerContext.Provider value={{
       plans,
@@ -216,8 +250,11 @@ export function CoPlannerProvider({ children }) {
       cancelPlanPicker,
       goToDashboard,
       dashboardResetKey,
+      increaseQuantity,
+      markPurchased,
       showPlanPicker,
       pendingProduct,
+      lastAddedProductId,
     }}>
       {children}
     </CoPlannerContext.Provider>
