@@ -78,6 +78,38 @@ export default function CartPage() {
 
   const togglePlan = (planId) => { setExpandedPlans((prev) => ({ ...prev, [planId]: !prev[planId] })); };
 
+  const handleCoPlanQty = async (planId, productId, delta, currentQty) => {
+    if (delta < 0 && currentQty <= 1) {
+      await fetch(`${API}/api/co-planner/${planId}/remove-item`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, memberName: userName }),
+      });
+    } else {
+      await fetch(`${API}/api/co-planner/${planId}/increase-quantity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, additionalQuantity: delta, memberName: userName }),
+      });
+    }
+    // Refresh co-plan data
+    Promise.all(
+      plans.map((p) =>
+        fetch(`${API}/api/co-planner/${p.id}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((d) => {
+            if (!d?.plan) return null;
+            const myItems = d.plan.items.filter((item) =>
+              item.assignedTo === userName || (!item.assignedTo && item.addedBy === userName)
+            );
+            if (myItems.length === 0) return null;
+            return { planId: d.plan.id, name: d.plan.name, items: myItems, budget: d.plan.budget, memberCount: d.plan.members?.length || 1 };
+          })
+          .catch(() => null)
+      )
+    ).then((results) => setSharedPlans(results.filter(Boolean)));
+  };
+
   // ── Selection helpers ──
   const isSelected = (id) => selected[id] !== false; // default true
   const toggleItem = (id) => setSelected((prev) => ({ ...prev, [id]: !isSelected(id) }));
@@ -122,12 +154,12 @@ export default function CartPage() {
   const personalItems = items;
   const visibleShared = hideShared ? [] : sharedPlans;
   const allVisibleItems = [
-    ...personalItems.map((i) => ({ id: i.id, price: i.price * i.qty })),
-    ...visibleShared.flatMap((sp) => sp.items.map((i) => ({ id: `cp_${i.productId}`, price: i.product?.price || 0 }))),
+    ...personalItems.map((i) => ({ id: i.id, price: i.price * i.qty, qty: i.qty })),
+    ...visibleShared.flatMap((sp) => sp.items.map((i) => ({ id: `cp_${i.productId}`, price: (i.product?.price || 0) * (i.quantityNeeded || 1), qty: i.quantityNeeded || 1, planId: sp.planId, productId: i.productId }))),
   ];
-  const visibleItemCount = allVisibleItems.length;
+  const visibleItemCount = allVisibleItems.reduce((s, i) => s + i.qty, 0);
   const selectedItems = allVisibleItems.filter((i) => isSelected(i.id));
-  const selectedCount = selectedItems.length;
+  const selectedCount = selectedItems.reduce((s, i) => s + i.qty, 0);
   const selectedSubtotal = selectedItems.reduce((s, i) => s + i.price, 0);
   const allAreSelected = allVisibleItems.length > 0 && allVisibleItems.every((i) => isSelected(i.id));
 
@@ -233,7 +265,7 @@ export default function CartPage() {
 
                 {!hideShared && sharedPlans.map((sp) => {
                   const isExpanded = expandedPlans[sp.planId] || false;
-                  const planTotal = sp.items.reduce((s, i) => s + (i.product?.price || 0), 0);
+                  const planTotal = sp.items.reduce((s, i) => s + (i.product?.price || 0) * (i.quantityNeeded || 1), 0);
                   const allPlanSelected = sp.items.every((i) => isSelected(`cp_${i.productId}`));
 
                   return (
@@ -247,7 +279,7 @@ export default function CartPage() {
                             {sp.name}
                           </Link>
                           <span className="text-xs text-[#565959]">
-                            {sp.items.length} Item{sp.items.length !== 1 ? "s" : ""} • {sp.memberCount} Member{sp.memberCount !== 1 ? "s" : ""} • {formatPrice(planTotal)}
+                            {sp.items.reduce((s, i) => s + (i.quantityNeeded || 1), 0)} Item{sp.items.reduce((s, i) => s + (i.quantityNeeded || 1), 0) !== 1 ? "s" : ""} • {sp.memberCount} Member{sp.memberCount !== 1 ? "s" : ""} • {formatPrice(planTotal)}
                           </span>
                         </div>
                         <span className="text-sm font-bold text-[#0F1111]">{formatPrice(planTotal)}</span>
@@ -273,12 +305,25 @@ export default function CartPage() {
                                   </span>
                                   <div className="text-xs text-[#007600] mb-2">In stock</div>
                                   <div className="flex items-center gap-4 flex-wrap">
-                                    <span className="text-xs text-[#565959]">Qty: 1</span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleCoPlanQty(sp.planId, item.productId, -1, item.quantityNeeded || 1)}
+                                        className="w-7 h-7 border border-gray-300 rounded flex items-center justify-center text-sm hover:bg-gray-50"
+                                      >−</button>
+                                      <span className="w-8 text-center text-sm font-medium">{item.quantityNeeded || 1}</span>
+                                      <button
+                                        onClick={() => handleCoPlanQty(sp.planId, item.productId, 1, item.quantityNeeded || 1)}
+                                        className="w-7 h-7 border border-gray-300 rounded flex items-center justify-center text-sm hover:bg-gray-50"
+                                      >+</button>
+                                    </div>
                                     <span className="text-gray-300">|</span>
-                                    <Link to={`/co-planner?id=${sp.planId}`} className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">View in Co-Plan</Link>
+                                    <button
+                                      onClick={() => addToCart({ id: p.id, name: p.name, price: p.price, thumbnail: p.image, image: p.image, isPrime: true })}
+                                      className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline"
+                                    >Move to Personal Cart</button>
                                   </div>
                                 </div>
-                                <div className="text-sm font-bold text-[#0F1111] flex-shrink-0">{formatPrice(p.price)}</div>
+                                <div className="text-sm font-bold text-[#0F1111] flex-shrink-0">{formatPrice(p.price * (item.quantityNeeded || 1))}</div>
                               </div>
                             );
                           })}
