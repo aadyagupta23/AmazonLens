@@ -202,9 +202,25 @@ export default function ProductPage() {
           ))}
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr_280px] gap-6">
+        <div
+        className="
+          grid
+          grid-cols-1
+          lg:grid-cols-[420px_1fr_280px]
+          gap-6
+          lg:h-[calc(100vh-90px)]
+        "
+      >
           {/* LEFT: Images */}
-          <div className="lg:sticky lg:top-20 self-start">
+          <div
+          className="
+            lg:sticky
+            lg:top-20
+            lg:h-[calc(100vh-110px)]
+            overflow-y-auto
+            overscroll-contain
+          "
+        >
             <div className="border border-gray-200 rounded-lg bg-white flex items-center justify-center overflow-hidden mb-3" style={{ minHeight: 360, maxHeight: 400 }}>
               <img
                 src={product.images?.[selectedImage] || product.thumbnail}
@@ -249,7 +265,15 @@ export default function ProductPage() {
           </div>
 
           {/* MIDDLE: Product details */}
-          <div className="min-w-0">
+          <div
+          className="
+            min-w-0
+            lg:h-[calc(100vh-110px)]
+            overflow-y-auto
+            overscroll-contain
+            pr-2
+          "
+        >
             <Link to={`/s?q=${product.brand}`} className="text-xs text-[#007185] hover:underline hover:text-[#C7511F]">
               Visit the {product.brand} Store
             </Link>
@@ -270,7 +294,7 @@ export default function ProductPage() {
 
             {/* TrustLens Panel */}
             <div className="mb-4">
-            <div className="max-h-[500px] overflow-y-auto overscroll-contain rounded-xl">
+            <div className="rounded-xl">
             <TrustPanel
               data={trustData}
               loading={trustAnalyzing}
@@ -460,7 +484,7 @@ export default function ProductPage() {
               </div>
 
               {/* Review list — from customer database */}
-              <div className="space-y-4 max-h-[700px] overflow-y-auto  overscroll-contain pr-2">
+              <div className="space-y-4 pr-2">
                 {dbReviews.map((review, i) => (
                   <div key={`${review.customerId}-${i}`} className="border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-2 mb-1">
@@ -502,7 +526,13 @@ export default function ProductPage() {
           </div>
 
           {/* RIGHT: Buy box */}
-          <div className="lg:sticky lg:top-20 self-start">
+        <div
+          className="
+            lg:h-[calc(100vh-110px)]
+            overflow-y-auto
+            overscroll-contain
+          "
+        >
             <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm">
               <div className="text-2xl font-medium text-[#0F1111] mb-1">
                 <span className="text-base">₹</span>
