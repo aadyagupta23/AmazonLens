@@ -73,7 +73,15 @@ export default function MyReviewsPage() {
                   <span className="text-sm font-bold text-[#0F1111]">{r.title}</span>
                 </div>
                 <p className="text-sm text-[#565959] line-clamp-3">{r.body}</p>
-                <p className="text-xs text-[#999] mt-1">Reviewed {timeAgo(r.date)}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-[#999]">Reviewed {timeAgo(r.date)}</p>
+                  <button
+                    onClick={() => clearReview(r.productId)}
+                    className="text-xs text-[#C7511F] hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}

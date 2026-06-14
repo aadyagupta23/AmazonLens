@@ -2,33 +2,15 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useOrders } from "../contexts/OrdersContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import { formatPrice } from "../utils/format.js";
 import { Check, MapPin, CreditCard, ShoppingBag } from "lucide-react";
 
-const MOCK_ADDRESSES = [
-  {
-    id: "a1",
-    name: "Nitya Datla",
-    line1: "42, MG Road, Koramangala",
-    line2: "Bengaluru, Karnataka",
-    pin: "560034",
-    phone: "+91 98765 43210",
-  },
-  {
-    id: "a2",
-    name: "Home",
-    line1: "12/3, Indiranagar 1st Stage",
-    line2: "Bengaluru, Karnataka",
-    pin: "560038",
-    phone: "+91 87654 32109",
-  },
-];
-
 const PAYMENT_OPTIONS = [
-  { id: "upi",        label: "UPI",                  icon: "📱", detail: "ashok@okaxis" },
-  { id: "card",       label: "Credit / Debit Card",  icon: "💳", detail: "•••• •••• •••• 4321" },
-  { id: "netbanking", label: "Net Banking",           icon: "🏦", detail: "HDFC Bank" },
-  { id: "cod",        label: "Cash on Delivery",      icon: "💵", detail: "Pay when delivered" },
+  { id: "upi",        label: "UPI",                 icon: "📱", detail: "Pay via any UPI app" },
+  { id: "card",       label: "Credit / Debit Card", icon: "💳", detail: "Visa, Mastercard, RuPay" },
+  { id: "netbanking", label: "Net Banking",          icon: "🏦", detail: "All major banks supported" },
+  { id: "cod",        label: "Cash on Delivery",     icon: "💵", detail: "Pay when delivered" },
 ];
 
 function StepBadge({ num, done, active }) {
@@ -64,12 +46,22 @@ function StepHeader({ num, title, done, active, onEdit }) {
 export default function CheckoutPage() {
   const { items, total, itemCount, clearCart } = useCart();
   const { placeOrder } = useOrders();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
-  const [selectedAddress, setSelectedAddress] = useState(MOCK_ADDRESSES[0]);
+  const [addressForm, setAddressForm] = useState({
+    name: user?.name || "",
+    line1: "",
+    city: user?.city || "",
+    pin: "",
+    phone: user?.phone || "",
+  });
   const [selectedPayment, setSelectedPayment] = useState(PAYMENT_OPTIONS[0]);
   const [placedOrder, setPlacedOrder] = useState(null);
+
+  const addressSummary = `${addressForm.line1}, ${addressForm.city} ${addressForm.pin}`.trim().replace(/^,\s*/, "");
+  const addressValid = addressForm.name && addressForm.line1 && addressForm.city && addressForm.pin;
 
   if (items.length === 0 && step < 4) {
     return (
@@ -87,7 +79,7 @@ export default function CheckoutPage() {
   }
 
   const handlePlaceOrder = () => {
-    const order = placeOrder({ items, total, address: selectedAddress, payment: selectedPayment });
+    const order = placeOrder({ items, total, address: addressSummary, payment: selectedPayment, userEmail: user?.email });
     clearCart();
     setPlacedOrder(order);
     setStep(4);
@@ -153,34 +145,30 @@ export default function CheckoutPage() {
             />
             {step === 1 && (
               <div className="px-5 pb-5">
-                <div className="space-y-3 mb-4">
-                  {MOCK_ADDRESSES.map((addr) => (
-                    <label
-                      key={addr.id}
-                      className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        selectedAddress.id === addr.id
-                          ? "border-[#FF9900] bg-[#FFF8EC]"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
+                <div className="grid sm:grid-cols-2 gap-3 mb-4">
+                  {[
+                    { key: "name",  label: "Full name",      placeholder: "Your full name",      span: true },
+                    { key: "line1", label: "Address",         placeholder: "Street, apartment, area" },
+                    { key: "city",  label: "City",            placeholder: "e.g. Bengaluru" },
+                    { key: "pin",   label: "PIN code",        placeholder: "6-digit PIN" },
+                    { key: "phone", label: "Phone (optional)", placeholder: "+91 XXXXX XXXXX" },
+                  ].map(({ key, label, placeholder, span }) => (
+                    <div key={key} className={span ? "sm:col-span-2" : ""}>
+                      <label className="block text-xs font-medium text-[#565959] mb-1">{label}</label>
                       <input
-                        type="radio"
-                        className="mt-1 accent-[#FF9900]"
-                        checked={selectedAddress.id === addr.id}
-                        onChange={() => setSelectedAddress(addr)}
+                        type="text"
+                        value={addressForm[key]}
+                        onChange={(e) => setAddressForm((f) => ({ ...f, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
                       />
-                      <div>
-                        <div className="font-bold text-sm text-[#0F1111]">{addr.name}</div>
-                        <div className="text-sm text-[#565959]">{addr.line1}</div>
-                        <div className="text-sm text-[#565959]">{addr.line2} — {addr.pin}</div>
-                        <div className="text-xs text-[#565959] mt-0.5">Phone: {addr.phone}</div>
-                      </div>
-                    </label>
+                    </div>
                   ))}
                 </div>
                 <button
-                  onClick={() => setStep(2)}
-                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold px-8 py-2.5 rounded-full text-sm"
+                  onClick={() => addressValid && setStep(2)}
+                  disabled={!addressValid}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] disabled:bg-gray-200 disabled:cursor-not-allowed text-[#0F1111] font-bold px-8 py-2.5 rounded-full text-sm"
                 >
                   Deliver to this address
                 </button>
@@ -189,7 +177,7 @@ export default function CheckoutPage() {
             {step > 1 && (
               <div className="px-5 pb-4 text-sm text-[#565959] flex items-center gap-1.5">
                 <MapPin size={12} className="text-[#FF9900]" />
-                {selectedAddress.name} · {selectedAddress.line1}, {selectedAddress.pin}
+                {addressForm.name} · {addressSummary}
               </div>
             )}
           </div>
@@ -238,7 +226,7 @@ export default function CheckoutPage() {
             {step > 2 && (
               <div className="px-5 pb-4 text-sm text-[#565959] flex items-center gap-1.5">
                 <CreditCard size={12} className="text-[#FF9900]" />
-                {selectedPayment.label} · {selectedPayment.detail}
+                {selectedPayment.icon} {selectedPayment.label}
               </div>
             )}
           </div>

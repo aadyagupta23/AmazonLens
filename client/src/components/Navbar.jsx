@@ -103,7 +103,7 @@ export default function Navbar() {
             <MapPin size={16} className="text-white mb-0.5" />
             <div>
               <div className="text-[#CCC] text-[11px]">Deliver to</div>
-              <div className="text-white font-bold text-[13px] whitespace-nowrap">Bengaluru 560001</div>
+              <div className="text-white font-bold text-[13px] whitespace-nowrap">{user?.city || "India"}</div>
             </div>
           </Link>
 
@@ -218,7 +218,7 @@ export default function Navbar() {
                     { label: "Your Orders", href: "/orders" },
                     { label: "Your Wishlist", href: "/wishlist" },
                     { label: "Your Prime", href: "/prime" },
-                    { label: "Recommendations", href: "/" },
+                    { label: "Recommendations", href: "/s?q=recommended" },
                     { label: "Browsing History", href: "/history" },
                     { label: "Your Reviews", href: "/my-reviews" },
                   ].map((item) => (
@@ -346,7 +346,7 @@ export default function Navbar() {
           <Link to="/amazon-pay" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
             Amazon Pay
           </Link>
-          <Link to="/cart" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
+          <Link to="/orders" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
             Buy Again
           </Link>
           <Link to="/minitv" className="px-3 py-2 hover:bg-white/10 rounded text-sm flex-shrink-0">
@@ -364,10 +364,12 @@ export default function Navbar() {
           {prefs.enabled && (
             <Link
               to="/sustainability"
-              className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-[#1B5E20]/80 hover:bg-[#1B5E20] rounded text-xs font-medium text-white flex-shrink-0 transition-colors"
+              title="View your Eco Dashboard"
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-[#1B5E20]/80 hover:bg-[#1B5E20] rounded text-xs font-medium text-white flex-shrink-0 transition-colors group"
             >
               <Leaf size={11} />
-              Eco Mode On
+              <span>Eco Mode On</span>
+              <span className="text-white/50 group-hover:text-white/80 transition-colors">· My Dashboard →</span>
             </Link>
           )}
         </div>

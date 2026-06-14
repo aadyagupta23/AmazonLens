@@ -3,9 +3,74 @@ import jwt from "jsonwebtoken";
 import { senseItems } from "../data/mockData.js";
 import { getAllProducts } from "./products.js";
 import { computeProductScore, computeDeliveryRate } from "../utils/trustFormula.js";
-import { getProductStats } from "../data/customers.js";
+import { computeProductTrustScore, getProductStats } from "../data/customers.js";
 import { getCompanyByName } from "../data/companies.js";
 import DnaProfile from "../models/DnaProfile.js";
+import { groqCall, FAST_MODEL } from "../utils/groqClient.js";
+
+// ── Suspicious review scanner ──────────────────────────────────────────────────
+const suspiciousCache = new Map(); // productId → { flagged, ts }
+const CACHE_TTL = 5 * 60 * 1000;  // 5 min
+
+async function scanForSuspiciousReviews(productId, reviews) {
+  const cached = suspiciousCache.get(productId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.flagged;
+
+  if (!reviews || reviews.length === 0) return [];
+
+  const slim = reviews.map((r) => ({
+    id: r.id,
+    author: r.author,
+    rating: r.rating,
+    title: r.title,
+    body: r.body,
+    verified: r.verified ?? false,
+    helpful: r.helpful ?? 0,
+  }));
+
+  const prompt = `You are a fake-review detection system. Analyze the following product reviews and identify any that show suspicious or inauthentic patterns.
+
+Suspicious signals to look for:
+- All-caps text or excessive capitalization throughout
+- Repetitive filler phrases ("best buy", "don't miss", "top quality" repeated multiple times)
+- Generic superlatives with zero product-specific detail
+- Bot-like language or obvious spam patterns
+- Unverified reviews with 0 helpful votes that give 5 stars
+- Multiple reviews that look coordinated (same date, same style, same username pattern)
+
+Reviews:
+${JSON.stringify(slim, null, 2)}
+
+Respond with ONLY this JSON — no explanation, no markdown:
+{"flagged":[{"id":"<review_id>","reason":"<concise reason, max 12 words>"}]}
+
+If no reviews are suspicious, respond with: {"flagged":[]}
+Return at most 3 entries.`;
+
+  try {
+    const resp = await groqCall({
+      model: FAST_MODEL,
+      max_tokens: 200,
+      temperature: 0.1,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const text = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    const jsonStart = text.indexOf("{");
+    const parsed = JSON.parse(text.slice(jsonStart));
+    const flaggedIds = new Set((parsed.flagged || []).map((f) => f.id));
+    const reasonMap = Object.fromEntries((parsed.flagged || []).map((f) => [f.id, f.reason]));
+
+    const result = reviews
+      .filter((r) => flaggedIds.has(r.id))
+      .slice(0, 3)
+      .map((r) => ({ ...r, aiReason: reasonMap[r.id] || "Flagged by AI analysis" }));
+
+    suspiciousCache.set(productId, { flagged: result, ts: Date.now() });
+    return result;
+  } catch {
+    return [];
+  }
+}
 
 const router = Router();
 
@@ -80,7 +145,7 @@ router.get("/predictions", (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PREFERENCE INTELLIGENCE (merged from DNA)
+// PREFERENCE INTELLIGENCE (DNA routes)
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.post("/event", async (req, res) => {
@@ -123,6 +188,127 @@ router.get("/profile", async (req, res) => {
     stage: eventCount < 5 ? "seedling" : eventCount < 20 ? "growing" : "established",
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TRUSTLENS INTEGRATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+router.post("/seller-trust", async (req, res) => {
+  const { productId, userReturns = 0 } = req.body || {};
+  const allProducts = await getAllProducts();
+  const product = allProducts.find(p => p.id === productId);
+  if (!product) return res.status(404).json({ message: "Product not found" });
+
+  const suspiciousReviewsPromise = scanForSuspiciousReviews(productId, product.reviews || []);
+
+  const sellerName = product.soldBy || "Unknown Seller";
+  const company    = getCompanyByName(sellerName);
+  const onTime     = computeDeliveryRate(product);
+  const sellerYear = product.sellerSince || "2020";
+  const sellerAge  = new Date().getFullYear() - parseInt(sellerYear);
+  const estOrders  = Math.round(sellerAge * 48000 + (parseFloat(product.soldByRating || 4) - 3) * 25000);
+  const ordersLabel = estOrders >= 1_000_000
+    ? `${(estOrders / 1_000_000).toFixed(1)}M+`
+    : `${Math.round(estOrders / 1000)}k+`;
+
+  const trust = computeProductTrustScore(productId);
+
+  let productScore, status, signals, totalBuyers, formula;
+
+  if (!trust.insufficient) {
+    const { returnRate: rData, reorderRate: roData, avgRating: ratingData } = trust.rawMetrics;
+
+    const adjReturnRate  = Math.min(0.60, rData.returnRate + userReturns * 0.03);
+    const adjReturnScore = Math.max(0, 35 * (1 - Math.min(adjReturnRate / 0.15, 1)));
+    const userPenalty    = Math.min(20, userReturns * 2);
+
+    const raw = adjReturnScore + trust.componentScores.reorderScore + trust.componentScores.reviewScore;
+    productScore = Math.max(5, Math.min(98, Math.round(raw) - userPenalty));
+    status       = productScore >= 75 ? "VERIFIED" : "TRUSTED";
+    totalBuyers  = rData.totalBuyers;
+
+    signals = [
+      ratingData.avgRating != null && ratingData.avgRating >= 3.8 && {
+        key: "reviews", icon: "Star",
+        headline: `${ratingData.avgRating} stars · ${ratingData.totalReviews} verified reviews`,
+        subtitle: "Based on verified purchases in our customer database",
+        howWeMeasure: `Mean star rating across all ${ratingData.totalReviews} verified reviews. ` +
+          `1★ = 0 pts, 5★ = 35 pts (linear). Current avg: ${ratingData.avgRating}★ → ` +
+          `${trust.componentScores.reviewScore.toFixed(1)} / 35 pts.`,
+      },
+      rData.returnRate < 0.12 && {
+        key: "keepRate", icon: "PackageOpen",
+        headline: rData.returnRate < 0.05
+          ? "Under 5% return rate"
+          : `Only ${Math.round(rData.returnRate * 100)}% of customers returned this`,
+        subtitle: "Most customers keep this item",
+        howWeMeasure: `Customer-level return rate across ${rData.totalBuyers} buyers: ` +
+          `${Math.round(rData.returnRate * 100)}%. ` +
+          `0% → 35 pts, 15%+ → 0 pts. Current: ${trust.componentScores.returnScore.toFixed(1)} / 35 pts.`,
+      },
+      roData.reorderRate > 0.10 && {
+        key: "reorders", icon: "RefreshCw",
+        headline: `${Math.round(roData.reorderRate * 100)}% of buyers reordered this`,
+        subtitle: "Customers keep coming back",
+        howWeMeasure: `Share of buyers who ordered this product more than once: ` +
+          `${Math.round(roData.reorderRate * 100)}%. ` +
+          `0% → 0 pts, 40%+ → 30 pts. Current: ${trust.componentScores.reorderScore.toFixed(1)} / 30 pts.`,
+      },
+      onTime >= 90 && {
+        key: "delivery", icon: "Truck",
+        headline: `${onTime}% on-time delivery`,
+        subtitle: "Orders consistently arrive by the promised date",
+        howWeMeasure: `Estimated from fulfilment type and seller rating. Fulfilment: ${product.fulfillment || "Merchant"}.`,
+      },
+      sellerAge >= 3 && {
+        key: "tenure", icon: "Store",
+        headline: `${sellerAge}-year seller · ${ordersLabel} orders fulfilled`,
+        subtitle: "Established seller with a long track record on Amazon",
+        howWeMeasure: "Based on seller's Amazon registration date and estimated lifetime order volume.",
+      },
+    ].filter(Boolean);
+
+    formula = {
+      source: "customer_db",
+      components: {
+        returnScore:  { pts: parseFloat(adjReturnScore.toFixed(2)),                    max: 35, rate: rData.returnRate },
+        reorderScore: { pts: parseFloat(trust.componentScores.reorderScore.toFixed(2)), max: 30, rate: roData.reorderRate },
+        reviewScore:  { pts: parseFloat(trust.componentScores.reviewScore.toFixed(2)),  max: 35, avg: ratingData.avgRating },
+      },
+      userPenalty,
+      totalBuyers,
+    };
+  } else {
+    const productStats = getProductStats(productId);
+    const realRg = productStats.returnRate;
+    const realRi = Math.min(1, productStats.reorderRate / 0.45);
+    const computed = computeProductScore(product, userReturns, { Rg: realRg, Ri: realRi });
+    productScore = computed.productScore;
+    status       = computed.status;
+    totalBuyers  = productStats.totalBuyers;
+    signals      = [];
+    formula      = { source: "fallback_insufficient_data", reason: trust.reason };
+  }
+
+  const suspiciousReviews = await suspiciousReviewsPromise;
+
+  res.json({
+    productScore, status, sellerName, totalBuyers, signals, suspiciousReviews,
+    company: company ? {
+      verified: company.verified, foundedYear: company.foundedYear,
+      category: company.category, fulfillment: company.fulfillment,
+      verificationNote: company.verificationNote || null,
+      ecoScore: company.ecoScore ?? null,
+      ecoLabel: company.ecoLabel ?? null,
+      eco: company.eco ?? null,
+    } : null,
+    formula,
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PERSONALIZATION
+// ══════════════════════════════════════════════════════════════════════════════
 
 router.get("/risk/:productId", async (req, res) => {
   const { productId } = req.params;
@@ -228,48 +414,6 @@ router.get("/recommendations", async (req, res) => {
   }));
 
   res.json({ recommendations: scored });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TRUSTLENS INTEGRATION (existing seller-trust)
-// ══════════════════════════════════════════════════════════════════════════════
-
-router.post("/seller-trust", async (req, res) => {
-  const { productId, userReturns = 0 } = req.body || {};
-  const allProducts = await getAllProducts();
-  const product = allProducts.find(p => p.id === productId);
-  if (!product) return res.status(404).json({ message: "Product not found" });
-
-  const sellerName = product.soldBy || "Unknown Seller";
-  const productStats = getProductStats(productId);
-  const realRg = productStats.returnRate;
-  const realRi = Math.min(1, productStats.reorderRate / 0.45);
-  const company = getCompanyByName(sellerName);
-
-  const { productScore, status, Rg, Rs, Kp, Ri, raw, returnPenalty } = computeProductScore(product, userReturns, { Rg: realRg, Ri: realRi });
-
-  const reorderPct = Math.round(productStats.reorderRate * 100);
-  const keepPct = Math.round(Kp * 100);
-  const onTime = computeDeliveryRate(product);
-  const sellerYear = product.sellerSince || "2020";
-  const sellerAge = new Date().getFullYear() - parseInt(sellerYear);
-  const estOrders = Math.round(sellerAge * 48000 + (parseFloat(product.soldByRating || 4) - 3) * 25000);
-  const ordersLabel = estOrders >= 1_000_000 ? `${(estOrders / 1_000_000).toFixed(1)}M+` : `${Math.round(estOrders / 1000)}k+`;
-
-  const signals = [
-    Rs >= 0.65 && { key: "reviews", icon: "Star", headline: `${Math.round(Rs * 100)}% positive review score`, subtitle: Rs >= 0.80 ? "Buyers consistently praise this product's quality and accuracy" : "Reviews are broadly positive across verified purchases", howWeMeasure: `Score: Rs = ${Rs.toFixed(2)} (weight 50% of total).` },
-    Kp >= 0.82 && { key: "keepRate", icon: "PackageOpen", headline: `${keepPct}% of buyers kept their purchase`, subtitle: Kp >= 0.93 ? "Buyers receive exactly what's described — very few returns" : "Well within normal return rates for this category", howWeMeasure: `Score: Kp = ${Kp.toFixed(2)} (weight 30% of total).` },
-    Ri >= 0.70 && { key: "reorders", icon: "RefreshCw", headline: `${reorderPct}% of buyers reordered this product`, subtitle: Ri >= 0.85 ? "Strong repeat purchase signal — buyers keep coming back" : "Buyers return to purchase this product again", howWeMeasure: `Score: Ri = ${Ri.toFixed(2)} (weight 20% of total).` },
-    onTime >= 90 && { key: "delivery", icon: "Truck", headline: `${onTime}% on-time delivery`, subtitle: "Orders consistently arrive by the promised date", howWeMeasure: `Fulfilment method: ${product.fulfillment || "Merchant"}.` },
-    sellerAge >= 3 && { key: "tenure", icon: "Store", headline: `${sellerAge}-year seller · ${ordersLabel} orders fulfilled`, subtitle: "Established seller with a long track record on Amazon", howWeMeasure: "Based on seller registration date and estimated lifetime order volume." },
-  ].filter(Boolean);
-
-  res.json({
-    productScore, status, sellerName, totalBuyers: productStats.totalBuyers, signals,
-    productStats: { totalBuyers: productStats.totalBuyers, returnRate: productStats.returnRate, reorderRate: productStats.reorderRate, avgRating: productStats.avgRating },
-    company: company ? { verified: company.verified, foundedYear: company.foundedYear, category: company.category, fulfillment: company.fulfillment, verificationNote: company.verificationNote || null } : null,
-    formula: { Rs: parseFloat(Rs.toFixed(3)), Kp: parseFloat(Kp.toFixed(3)), Ri: parseFloat(Ri.toFixed(3)), Rg: parseFloat(Rg.toFixed(3)), weights: { Rs: 0.50, Kp: 0.30, Ri: 0.20 }, raw: parseFloat(raw.toFixed(4)), returnPenalty },
-  });
 });
 
 router.post("/analyze", async (req, res) => {

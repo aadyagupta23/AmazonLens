@@ -155,6 +155,7 @@ export default function SearchResults() {
       if (sort === "Price: Low to High") return a.price - b.price;
       if (sort === "Price: High to Low") return b.price - a.price;
       if (sort === "Avg. Customer Review") return (b.rating || 0) - (a.rating || 0);
+      if (sort === "Newest Arrivals") return (b.id || 0) - (a.id || 0);
       return 0;
     });
 

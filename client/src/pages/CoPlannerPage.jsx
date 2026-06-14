@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import QRCode from "qrcode";
 import { useSearchParams } from "react-router-dom";
 import {
   Users, Plus, ShoppingCart, Wallet, UserCheck, Package,
@@ -37,6 +38,7 @@ function InviteModal({ planId, onClose }) {
   const [expiration, setExpiration] = useState("never");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   const generateInvite = async () => {
     setLoading(true);
@@ -58,6 +60,11 @@ function InviteModal({ planId, onClose }) {
   useEffect(() => { generateInvite(); }, []);
 
   const inviteUrl = invite ? `${window.location.origin}/co-planner?join=${invite.token}` : "";
+
+  useEffect(() => {
+    if (!inviteUrl) return;
+    QRCode.toDataURL(inviteUrl, { width: 180, margin: 2 }).then(setQrDataUrl).catch(() => {});
+  }, [inviteUrl]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(inviteUrl);
@@ -104,12 +111,19 @@ function InviteModal({ planId, onClose }) {
                 </div>
               </div>
 
-              {/* QR Code placeholder */}
-              <div className="flex items-center justify-center py-6 bg-gray-50 rounded-lg border border-gray-200 mb-4">
-                <div className="text-center">
-                  <QrCode size={64} className="text-gray-300 mx-auto mb-2" />
-                  <p className="text-xs text-gray-500">QR Code for mobile sharing</p>
-                </div>
+              {/* QR Code */}
+              <div className="flex items-center justify-center py-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+                {qrDataUrl ? (
+                  <div className="text-center">
+                    <img src={qrDataUrl} alt="QR code" className="w-[120px] h-[120px] mx-auto" />
+                    <p className="text-xs text-gray-500 mt-1">Scan to join on mobile</p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <QrCode size={48} className="text-gray-300 mx-auto mb-1 animate-pulse" />
+                    <p className="text-xs text-gray-400">Generating QR…</p>
+                  </div>
+                )}
               </div>
 
               {/* Expiration */}

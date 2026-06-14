@@ -2,9 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useRef } from "r
 import { getSocket } from "../utils/socket.js";
 
 const WitnessContext = createContext(null);
+const STORAGE_KEY = "al_witness_session";
 
 export function WitnessProvider({ children }) {
-  const [witnessInfo, setWitnessInfo] = useState(null);  // null = offline
+  const [witnessInfo, setWitnessInfo] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; } catch { return null; }
+  });
   const [incomingRequest, setIncomingRequest] = useState(null);
   const [activeRoom, setActiveRoom] = useState(null);    // { roomId, buyerName }
   const [chatMessages, setChatMessages] = useState([]);
@@ -48,6 +51,7 @@ export function WitnessProvider({ children }) {
 
   const goOnline = (info) => {
     const avatar = info.name.trim().split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    const session = { ...info, avatar };
     getSocket().emit("witness:online", {
       productId: info.productId,
       productName: info.productName,
@@ -57,12 +61,14 @@ export function WitnessProvider({ children }) {
       wouldBuyAgain: info.wouldBuyAgain,
       avatar,
     });
-    setWitnessInfo({ ...info, avatar });
+    setWitnessInfo(session);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   };
 
   const goOffline = () => {
     getSocket().emit("witness:offline");
     setWitnessInfo(null);
+    localStorage.removeItem(STORAGE_KEY);
     setIncomingRequest(null);
     setActiveRoom(null);
     setChatMessages([]);

@@ -7,9 +7,9 @@ import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useHistory } from "../contexts/HistoryContext.jsx";
 import { useReviews } from "../contexts/ReviewsContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useOrders } from "../contexts/OrdersContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
-import { getSustainabilityData } from "../utils/sustainability.js";
 import StarRating from "../components/StarRating.jsx";
 import TrustPanel from "../components/TrustLens/TrustPanel.jsx";
 import UserTrustVote from "../components/TrustLens/UserTrustVote.jsx";
@@ -17,10 +17,8 @@ import MockReturn from "../components/TrustLens/MockReturn.jsx";
 import { useSense } from "../contexts/SenseContext.jsx";
 import ReturnRiskBadge from "../components/ReturnRiskBadge.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
-import PriceDropPrediction from "../components/TrustLens/PriceDropPrediction.jsx";
 import WitnessPanel from "../components/WitnessPanel/WitnessPanel.jsx";
 import SustainabilityPanel from "../components/Sustainability/SustainabilityPanel.jsx";
-import SustainabilityBadge from "../components/Sustainability/SustainabilityBadge.jsx";
 import { Check, Truck, RotateCcw, Share2, Heart, Shield, Star, Users as UsersIcon } from "lucide-react";
 
 const QTY_OPTIONS = [1, 2, 3, 4, 5];
@@ -33,6 +31,7 @@ export default function ProductPage() {
   const { addToHistory } = useHistory();
   const { saveReview, hasReviewed } = useReviews();
   const { user: authUser, realUser } = useAuth();
+  const { orders } = useOrders();
   const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
   const { recordEvent, getProductMatch } = useSense();
@@ -54,6 +53,8 @@ export default function ProductPage() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
   const [reviewError, setReviewError] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
+  const [reviewSearch, setReviewSearch] = useState("");
 
   const fetchReviews = async (pid, page = 1) => {
     setReviewsLoading(true);
@@ -173,20 +174,37 @@ export default function ProductPage() {
   if (!product) return null;
 
   const nonSuspicious = (product.reviews || []).filter((r) => !r.suspicious);
-  const sustainData = getSustainabilityData(product.id);
+  const currentEmail = authUser?.email?.toLowerCase();
+  const hasPurchased = orders.some(
+    (o) =>
+      (!o.userEmail || o.userEmail.toLowerCase() === currentEmail) &&
+      (o.items || []).some((i) => i.id === productId && i.returnStatus !== "Returned")
+  );
+
+  // Build sustainability panel data from real company eco object (only used when ecoScore > 80)
+  const companyEco = trustData?.company?.eco;
+  const companyEcoScore = trustData?.company?.ecoScore ?? 0;
+  const sustainData = companyEco ? {
+    score:           companyEcoScore,
+    carbonFootprint: Math.round((companyEco.carbonReductionTarget + companyEco.renewableEnergyPct) / 2),
+    recyclability:   companyEco.recyclablePackagingPct,
+    packagingImpact: companyEco.recyclablePackagingPct,
+    ethicalSourcing: companyEco.supplyChainScore,
+    certified:       (companyEco.certifications?.length ?? 0) >= 2,
+  } : null;
 
   // Live rating computed from all loaded reviews (updates when new review submitted)
   const liveRating = dbReviews.length > 0
     ? parseFloat((dbReviews.reduce((s, r) => s + r.rating, 0) / dbReviews.length).toFixed(1))
     : product.rating;
 
-  // Star distribution from loaded reviews (falls back to static percentages)
+  // Star distribution — only computed from real loaded reviews
   const starDist = dbReviews.length > 0
     ? [5, 4, 3, 2, 1].map((star) => {
         const cnt = dbReviews.filter((r) => r.rating === star).length;
         return { star, pct: Math.round((cnt / dbReviews.length) * 100) };
       })
-    : [5, 4, 3, 2, 1].map((star, i) => ({ star, pct: [52, 28, 12, 5, 3][i] }));
+    : null;
 
   return (
     <div className="bg-white min-h-screen">
@@ -254,8 +272,15 @@ export default function ProductPage() {
             )}
 
             <div className="flex gap-2 mt-3">
-              <button className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] hover:underline">
-                <Share2 size={13} /> Share
+              <button
+                className="flex items-center gap-1.5 text-xs text-[#007185] hover:text-[#C7511F] hover:underline"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                }}
+              >
+                <Share2 size={13} /> {shareCopied ? "Copied!" : "Share"}
               </button>
               <button
                 onClick={() => product && toggleWishlist(product)}
@@ -294,21 +319,25 @@ export default function ProductPage() {
                 {(reviewsTotal || product.reviewCount).toLocaleString("en-IN")} ratings
               </a>
               <span className="text-xs text-[#565959]">|</span>
-              <span className="text-xs text-[#C7511F]">Search this page</span>
+              <input
+                type="text"
+                placeholder="Search this page"
+                value={reviewSearch}
+                onChange={(e) => setReviewSearch(e.target.value)}
+                className="text-xs text-[#C7511F] placeholder-[#C7511F] border-b border-[#C7511F] bg-transparent outline-none w-28 focus:w-40 transition-all"
+              />
             </div>
 
             <hr className="my-3 border-gray-200" />
 
             {/* TrustLens Panel */}
             <div className="mb-4">
-            <div className="rounded-xl">
-            <TrustPanel
-              data={trustData}
-              loading={trustAnalyzing}
-              sellerName={trustData?.sellerName}
-            />
-          </div>
-              {!trustAnalyzing && trustData && (
+              <TrustPanel
+                data={trustData}
+                loading={trustAnalyzing}
+                sellerName={trustData?.sellerName}
+              />
+              {!trustAnalyzing && trustData && hasPurchased && (
                 <div className="mt-1 bg-white border border-gray-200 rounded-2xl px-4 py-1 shadow-sm">
                   <UserTrustVote productId={productId} />
                   <MockReturn
@@ -321,14 +350,16 @@ export default function ProductPage() {
                   />
                 </div>
               )}
-              {!trustAnalyzing && (product.reviews || []).some((r) => r.suspicious) && (
+              {!trustAnalyzing && trustData?.suspiciousReviews?.length > 0 && (
                 <div className="mt-2">
-                  <SuspiciousReviews reviews={product.reviews || []} />
+                  <SuspiciousReviews reviews={trustData.suspiciousReviews} />
                 </div>
               )}
             </div>
 
-            {showOnProduct && <SustainabilityPanel data={sustainData} />}
+            {showOnProduct && companyEcoScore >= 80 && sustainData && (
+              <SustainabilityPanel data={sustainData} ecoLabel={trustData?.company?.ecoLabel} />
+            )}
 
             {/* ── AMAZON SENSE MATCH ── */}
             {dnaMatch && dnaMatch.confident && (() => {
@@ -466,17 +497,19 @@ export default function ProductPage() {
                   <StarRating rating={liveRating} size="sm" />
                   <div className="text-xs text-[#565959] mt-1">out of 5</div>
                 </div>
-                <div className="flex-1 min-w-48">
-                  {starDist.map(({ star, pct }) => (
-                    <div key={star} className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-[#007185] hover:underline cursor-pointer w-10">{star} star</span>
-                      <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div className="bg-[#FF9900] h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                {starDist && (
+                  <div className="flex-1 min-w-48">
+                    {starDist.map(({ star, pct }) => (
+                      <div key={star} className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-[#007185] hover:underline cursor-pointer w-10">{star} star</span>
+                        <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div className="bg-[#FF9900] h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-[#007185] w-8">{pct}%</span>
                       </div>
-                      <span className="text-xs text-[#007185] w-8">{pct}%</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* ── WRITE A REVIEW (above list) ── */}
@@ -555,8 +588,15 @@ export default function ProductPage() {
               </div>
 
               {/* Review list — from customer database */}
-              <div className="space-y-4 pr-2">
-                {dbReviews.map((review, i) => (
+              <div className="space-y-4">
+                {reviewSearch.trim() && (
+                  <p className="text-xs text-[#565959]">
+                    Showing results for <span className="font-medium text-[#0F1111]">"{reviewSearch}"</span>
+                    {" — "}
+                    {dbReviews.filter(r => `${r.title} ${r.body} ${r.author}`.toLowerCase().includes(reviewSearch.toLowerCase())).length} match(es)
+                  </p>
+                )}
+                {dbReviews.filter(r => !reviewSearch.trim() || `${r.title} ${r.body} ${r.author}`.toLowerCase().includes(reviewSearch.toLowerCase())).map((review, i) => (
                   <div key={`${review.customerId}-${i}`} className="border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-7 h-7 rounded-full bg-[#EAEDED] flex items-center justify-center text-xs font-bold text-[#565959]">
@@ -621,7 +661,7 @@ export default function ProductPage() {
               )}
 
               <div className="text-xs text-[#0F1111] mb-3">
-                Deliver to <span className="text-[#007185] font-medium cursor-pointer hover:underline">Bengaluru 560001</span>
+                Deliver to <span className="text-[#007185] font-medium cursor-pointer hover:underline">{authUser?.city || "India"}</span>
               </div>
 
               <div className="text-base text-[#007600] font-medium mb-3">
@@ -735,13 +775,13 @@ export default function ProductPage() {
                 );
               })()}
 
-              {showOnProduct && (
+              {showOnProduct && sustainData && companyEcoScore >= 80 && (
                 <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-[#1B5E20] text-xs font-bold">Sustainability</div>
                       <div className="text-[#1B5E20]/70 text-[10px]">
-                        {sustainData.score >= 75 ? "Eco-Friendly" : sustainData.score >= 50 ? "Moderate" : "Low Impact"}
+                        {sustainData.score >= 90 ? "Climate Leader" : sustainData.score >= 80 ? "Eco Advanced" : "Eco Conscious"}
                       </div>
                     </div>
                     <div className="text-[#1B5E20] text-2xl font-bold">{sustainData.score}</div>

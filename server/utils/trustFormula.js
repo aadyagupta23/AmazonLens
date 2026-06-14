@@ -3,11 +3,11 @@
  *
  * Score = 0.50·Rs + 0.30·Kp + 0.20·Ri
  *
- *   Rs  Review Score    trustScore / 100                      weight 0.50
- *   Kp  Keep Rate       1 − Rg  (this product's return rate)  weight 0.30
- *   Ri  Reorder Index   this product's reorder rate / 0.45    weight 0.20
+ *   Rs  Review Score    avg star rating from customer DB, normalised (1★→0, 5★→1)  weight 0.50
+ *   Kp  Keep Rate       1 − Rg  (this product's return rate)                        weight 0.30
+ *   Ri  Reorder Index   this product's reorder rate / 0.45                          weight 0.20
  *
- * All three components are per-product, not per-seller.
+ * All three components are per-product, computed from real customer order data.
  */
 
 /** Rg — Global Return Rate (0–1) from review language + suspicious ratio. */
@@ -27,9 +27,9 @@ export function computeRg(sellerProducts) {
   return Math.min(0.60, (kwTotal / count) * 0.60 + (suspTotal / count) * 0.40);
 }
 
-/** Rs — Review Score (0–1). Curated trustScore captures authenticity + quality. */
-export function computeRs(product) {
-  return (product.trustScore != null ? product.trustScore : 70) / 100;
+/** Rs — Review Score (0–1). Normalised avg star rating: (avgRating − 1) / 4. */
+export function computeRs(avgRating) {
+  return Math.max(0, Math.min(1, ((avgRating ?? 4.0) - 1) / 4));
 }
 
 /** Kp — Keep Rate (0–1). Inverse of return rate. */
@@ -64,7 +64,9 @@ export function computeProductScore(product, userReturns = 0, overrides = {}) {
   let Rg = overrides.Rg ?? 0.10; // default 10% if no customer data
   Rg = Math.min(0.60, Rg + userReturns * 0.03);
 
-  const Rs = computeRs(product);
+  // Use real avgRating from customer DB when available; fall back to product.rating (display rating)
+  const avgRating = overrides.avgRating ?? product.rating ?? 4.0;
+  const Rs = computeRs(avgRating);
   const Kp = computeKp(Rg);
   const Ri = overrides.Ri ?? computeRi(product);
 

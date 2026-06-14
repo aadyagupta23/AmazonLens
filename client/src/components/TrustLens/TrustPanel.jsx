@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { RefreshCw, ShieldCheck, PackageOpen, Truck, Store, Star, Info, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { RefreshCw, ShieldCheck, PackageOpen, Truck, Store, Star, Info, ChevronDown, ChevronUp, Check, Leaf } from "lucide-react";
+import { useSustainability } from "../../contexts/SustainabilityContext.jsx";
 
 const ICON_MAP = { RefreshCw, ShieldCheck, PackageOpen, Truck, Store, Star };
 
@@ -68,8 +69,11 @@ function SignalRow({ signal, isLast }) {
 export default function TrustPanel({ data, loading, sellerName }) {
   const [expanded, setExpanded] = useState(true);
   const [scoreInfoOpen, setScoreInfoOpen] = useState(false);
+  const { showOnProduct } = useSustainability();
   const style = STATUS_STYLE[data?.status] || STATUS_STYLE.TRUSTED;
   const signals = data?.signals || [];
+  const ecoScore = data?.company?.ecoScore ?? 0;
+  const showEcoSignal = showOnProduct && ecoScore >= 80;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
@@ -121,22 +125,86 @@ export default function TrustPanel({ data, loading, sellerName }) {
                         How TrustLens calculates this score
                       </p>
 
-                      {/* Formula */}
-                      <div className="space-y-2 mb-4">
-                        {[
-                          { label: "Review quality (Rs)", pct: "50%", detail: "Authenticity score of verified buyer reviews — filters suspicious patterns" },
-                          { label: "Keep rate (Kp)", pct: "30%", detail: "% of buyers who kept the item (1 − return rate) across this seller's catalogue" },
-                          { label: "Reorder rate (Ri)", pct: "20%", detail: "How often buyers purchase from this seller again — a strong satisfaction signal" },
-                        ].map(({ label, pct, detail }) => (
-                          <div key={label} className="flex gap-3">
-                            <span className="text-[#FF9900] font-bold text-xs w-8 flex-shrink-0 pt-0.5">{pct}</span>
-                            <div>
-                              <p className="text-white text-xs font-medium leading-tight">{label}</p>
-                              <p className="text-white/50 text-[11px] leading-snug mt-0.5">{detail}</p>
+                      {/* Live component breakdown */}
+                      {data?.formula?.source === "customer_db" && data.formula.components ? (
+                        <div className="space-y-2.5 mb-4">
+                          {[
+                            {
+                              label: "Avg Star Rating",
+                              pts: data.formula.components.reviewScore?.pts,
+                              max: 35,
+                              raw: data.formula.components.reviewScore?.avg != null
+                                ? `${data.formula.components.reviewScore.avg}★ avg`
+                                : null,
+                              detail: "Mean rating across all verified purchase reviews in our customer database.",
+                              color: "bg-yellow-400",
+                            },
+                            {
+                              label: "Return Rate",
+                              pts: data.formula.components.returnScore?.pts,
+                              max: 35,
+                              raw: data.formula.components.returnScore?.rate != null
+                                ? `${Math.round(data.formula.components.returnScore.rate * 100)}% returned`
+                                : null,
+                              detail: "Lower return rate = higher score. 0% → 35 pts, 15%+ → 0 pts.",
+                              color: "bg-green-400",
+                            },
+                            {
+                              label: "Reorder Rate",
+                              pts: data.formula.components.reorderScore?.pts,
+                              max: 30,
+                              raw: data.formula.components.reorderScore?.rate != null
+                                ? `${Math.round(data.formula.components.reorderScore.rate * 100)}% reordered`
+                                : null,
+                              detail: "How many buyers ordered this product more than once. 0% → 0 pts, 40%+ → 30 pts.",
+                              color: "bg-blue-400",
+                            },
+                          ].map(({ label, pts, max, raw, detail, color }) => (
+                            <div key={label}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-white text-xs font-medium">{label}</span>
+                                <span className="text-[#FF9900] text-xs font-bold">
+                                  {pts != null ? `${pts.toFixed(1)}` : "—"} / {max} pts
+                                </span>
+                              </div>
+                              {pts != null && (
+                                <div className="w-full bg-white/10 rounded-full h-1.5 mb-1">
+                                  <div
+                                    className={`${color} h-full rounded-full transition-all`}
+                                    style={{ width: `${Math.round((pts / max) * 100)}%` }}
+                                  />
+                                </div>
+                              )}
+                              <p className="text-white/40 text-[10px] leading-snug">
+                                {raw && <span className="text-white/60 font-medium">{raw} · </span>}
+                                {detail}
+                              </p>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                          {data.formula.userPenalty > 0 && (
+                            <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                              <span className="text-red-400 text-xs">Your return history</span>
+                              <span className="text-red-400 text-xs font-bold">−{data.formula.userPenalty} pts</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2 mb-4">
+                          {[
+                            { label: "Avg Star Rating", pts: "35", detail: "Mean rating from verified buyer reviews in our customer database." },
+                            { label: "Return Rate", pts: "35", detail: "Lower return rate = higher score. 0% returns → full 35 pts." },
+                            { label: "Reorder Rate", pts: "30", detail: "Share of buyers who ordered this product again." },
+                          ].map(({ label, pts, detail }) => (
+                            <div key={label} className="flex gap-3">
+                              <span className="text-[#FF9900] font-bold text-xs w-8 flex-shrink-0 pt-0.5">{pts}</span>
+                              <div>
+                                <p className="text-white text-xs font-medium leading-tight">{label}</p>
+                                <p className="text-white/50 text-[11px] leading-snug mt-0.5">{detail}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Thresholds */}
                       <div className="border-t border-white/10 pt-3 mb-3 flex gap-3">
@@ -146,15 +214,15 @@ export default function TrustPanel({ data, loading, sellerName }) {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                          <span className="text-white/70 text-[11px]"><b className="text-white">TRUSTED</b> 50–74</span>
+                          <span className="text-white/70 text-[11px]"><b className="text-white">TRUSTED</b> &lt; 75</span>
                         </div>
                       </div>
 
-                      {/* Vendor note */}
+                      {/* Data source note */}
                       <div className="bg-white/5 rounded-xl px-3 py-2.5">
                         <p className="text-white/60 text-[11px] leading-relaxed">
-                          <span className="text-white/90 font-medium">Only verified positives are shown to buyers.</span>{" "}
-                          Sellers with lower scores aren't penalised publicly — the score shapes Amazon's internal ranking and helps sellers identify where to improve.
+                          <span className="text-white/90 font-medium">Computed from real purchase data.</span>{" "}
+                          Scores update when customers leave reviews or file returns.
                         </p>
                       </div>
                     </div>
@@ -196,11 +264,35 @@ export default function TrustPanel({ data, loading, sellerName }) {
             </div>
           )}
 
-          {signals.length > 0 ? (
+          {signals.length > 0 || showEcoSignal ? (
             <div className="px-4">
               {signals.map((signal, i) => (
-                <SignalRow key={signal.key} signal={signal} isLast={i === signals.length - 1} />
+                <SignalRow
+                  key={signal.key}
+                  signal={signal}
+                  isLast={i === signals.length - 1 && !showEcoSignal}
+                />
               ))}
+              {showEcoSignal && (
+                <div className="flex items-start gap-3 py-3.5">
+                  <div className="relative flex-shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center">
+                      <Leaf size={17} className="text-green-600" />
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                      <Check size={8} strokeWidth={3} className="text-white" />
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-[#0F1111] leading-snug">
+                      Sustainability score {ecoScore}/100 — {data.company.ecoLabel}
+                    </p>
+                    <p className="text-[#565959] text-xs mt-0.5 leading-snug">
+                      Company meets eco-conscious standards across carbon, packaging &amp; supply chain
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="px-4 py-5">
@@ -211,9 +303,8 @@ export default function TrustPanel({ data, loading, sellerName }) {
           {/* Footer — formula summary */}
           <div className="px-4 pb-4 pt-2 border-t border-gray-100 mt-1">
             <p className="text-[10px] text-[#999] leading-relaxed">
-              Score = 50% review quality · 30% keep rate · 20% reorder rate.
-              Score = 50% review quality · 30% keep rate · 20% reorder rate.
-              {data.totalBuyers > 0 && ` Based on ${data.totalBuyers} verified buyers of this product.`}
+              Score = avg rating (35 pts) + low return rate (35 pts) + reorder rate (30 pts).
+              {data.formula?.totalBuyers > 0 && ` Based on ${data.formula.totalBuyers} verified buyers.`}
             </p>
           </div>
         </>

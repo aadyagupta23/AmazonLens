@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { AlertOctagon, ChevronDown, ChevronUp, Star } from "lucide-react";
 
+// reviews may be pre-filtered (from AI scan) or contain a mix (filtered here by r.suspicious)
 export default function SuspiciousReviews({ reviews }) {
   const [expanded, setExpanded] = useState(false);
-  const suspicious = reviews.filter((r) => r.suspicious);
+  const suspicious = reviews.every((r) => r.aiReason != null || r.suspicious != null)
+    ? reviews.filter((r) => r.aiReason || r.suspicious)
+    : reviews.filter((r) => r.suspicious);
 
   if (suspicious.length === 0) return null;
 
@@ -48,7 +51,7 @@ export default function SuspiciousReviews({ reviews }) {
               <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{review.body}</p>
               <div className="mt-2 bg-red-100 border border-red-200 rounded px-2 py-1 flex items-start gap-1.5">
                 <AlertOctagon size={12} className="text-[#CC0C39] flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-[#CC0C39] font-medium">{review.suspiciousReason}</p>
+                <p className="text-xs text-[#CC0C39] font-medium">{review.aiReason || review.suspiciousReason}</p>
               </div>
             </div>
           ))}

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import { API } from "../utils/format.js";
 
 const OrdersContext = createContext(null);
 
@@ -14,13 +15,14 @@ function save(orders) {
 export function OrdersProvider({ children }) {
   const [orders, setOrders] = useState(load);
 
-  const placeOrder = ({ items, total, address, payment }) => {
+  const placeOrder = ({ items, total, address, payment, userEmail }) => {
     const order = {
       id: `OD${Date.now()}`,
       items: items.map((i) => ({ ...i, returnStatus: null, review: null })),
       total,
       address,
       payment,
+      userEmail: userEmail || null,
       placedAt: new Date().toISOString(),
       status: "Delivered",
       estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
@@ -41,8 +43,16 @@ export function OrdersProvider({ children }) {
     save(updated);
   };
 
-  const returnItem = (orderId, itemId) =>
+  const returnItem = (orderId, itemId, email = null) => {
     _patchItem(orderId, itemId, { returnStatus: "Returned", returnedAt: new Date().toISOString() });
+    if (email && itemId) {
+      fetch(`${API}/api/customers/return`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, productId: itemId }),
+      }).catch(() => {});
+    }
+  };
 
   const addReview = (orderId, itemId, review) =>
     _patchItem(orderId, itemId, { review });

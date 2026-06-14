@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   customers, getCustomerById, getCustomersForProduct,
   getCustomersForSeller, getProductStats, addCustomer, recordActivity,
-  getProductReviews, addReview,
+  getProductReviews, addReview, recordReturn,
 } from "../data/customers.js";
 import { invalidateProductCache } from "./products.js";
 
@@ -93,6 +93,16 @@ router.post("/reviews", (req, res) => {
     return res.status(409).json({ message: "You have already reviewed this product" });
   invalidateProductCache(); // force product list to recompute scores + review counts
   res.status(201).json(result.review);
+});
+
+// POST /api/customers/return — record a return for a customer by email
+router.post("/return", (req, res) => {
+  const { email, productId, reason = "" } = req.body;
+  if (!email || !productId) return res.status(400).json({ message: "email and productId are required" });
+  const updated = recordReturn(email, productId, reason);
+  if (!updated) return res.status(404).json({ message: "Customer not found" });
+  invalidateProductCache();
+  res.json({ ok: true });
 });
 
 // GET /api/customers/:id — single customer with full order history

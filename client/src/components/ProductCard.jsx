@@ -11,13 +11,13 @@ import { Heart, Leaf, Users, Check, Plus, Minus } from "lucide-react";
 // Map companyStatus → badge colours
 const STATUS_BADGE = {
   VERIFIED: "bg-[#067D62] text-white",
+  TRUSTED:  "bg-[#0284c7] text-white",
   MIXED:    "bg-[#FF9900] text-[#0F1111]",
-  FLAGGED:  "bg-[#CC0C39] text-white",
 };
 const STATUS_LABEL = {
   VERIFIED: "Verified",
+  TRUSTED:  "Trusted",
   MIXED:    "Mixed",
-  FLAGGED:  "Flagged",
 };
 
 export default function ProductCard({ product, greenerChoice = false }) {
@@ -70,7 +70,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
     return Math.max(0, Math.min(100, score));
   })();
 
-  const score = product.companyScore ?? product.trustScore ?? 70;
+  const score = product.companyScore ?? product.productScore ?? product.trustScore ?? 70;
 
   // Dampen Sense match when TrustLens score is low
   const senseScore = (() => {
@@ -90,7 +90,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
     return senseMatchScore;
   })();
 
-  const status = product.companyStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
+  const status = product.companyStatus ?? product.productStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
   const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.MIXED;
   const badgeLabel = STATUS_LABEL[status] ?? status;
 

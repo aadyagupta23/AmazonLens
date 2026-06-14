@@ -1,21 +1,19 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Leaf, Recycle, Package, Globe, Award, TrendingUp, ChevronRight } from "lucide-react";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
-import { getSustainabilityData, getUserSustainabilityScore, getSustainabilityColor } from "../utils/sustainability.js";
+import { useOrders } from "../contexts/OrdersContext.jsx";
+import { getSustainabilityData, getSustainabilityColor } from "../utils/sustainability.js";
+import { API } from "../utils/format.js";
 
-function loadOrders() {
-  try { return JSON.parse(localStorage.getItem("amz_orders") || "[]"); } catch { return []; }
-}
-
-function computeMonthlyTrend(orders) {
+function computeMonthlyTrend(orders, getScore) {
   const byMonth = {};
   orders.forEach((o) => {
     const d = new Date(o.placedAt);
     const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
     const label = d.toLocaleString("en-US", { month: "short" });
     if (!byMonth[key]) byMonth[key] = { label, scores: [], sortKey: d.getFullYear() * 12 + d.getMonth() };
-    (o.items || []).forEach((i) => byMonth[key].scores.push(getSustainabilityData(i.id).score));
+    (o.items || []).forEach((i) => byMonth[key].scores.push(getScore(i.id)));
   });
   return Object.values(byMonth)
     .sort((a, b) => a.sortKey - b.sortKey)
@@ -36,29 +34,65 @@ const ACHIEVEMENTS = [
 
 export default function SustainabilityPage() {
   const { prefs, toggleMode } = useSustainability();
+  const { orders } = useOrders();
 
-  const orders = useMemo(() => loadOrders(), []);
+  // Fetch company eco scores once — productId → { ecoScore, certified }
+  const [ecoMap, setEcoMap] = useState({});
+  useEffect(() => {
+    fetch(`${API}/api/companies`)
+      .then((r) => r.json())
+      .then(({ companies }) => {
+        const map = {};
+        for (const co of companies) {
+          if (!co.ecoScore) continue;
+          for (const pid of co.products || []) {
+            map[pid] = {
+              ecoScore: co.ecoScore,
+              certified: (co.eco?.certifications?.length ?? 0) >= 2,
+            };
+          }
+        }
+        setEcoMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Use real company ecoScore when available, else fall back to seeded score
+  const getScore = (productId) =>
+    ecoMap[productId]?.ecoScore ?? getSustainabilityData(productId).score;
+  const isCertified = (productId) =>
+    ecoMap[productId]?.certified ?? getSustainabilityData(productId).certified;
+
   const allItems = useMemo(() => orders.flatMap((o) => o.items || []), [orders]);
 
-  const userScore = getUserSustainabilityScore(allItems, prefs);
+  // Recompute userScore using real eco scores
+  const userScore = allItems.length === 0 ? null : (() => {
+    const scores = allItems.map((i) => getScore(i.id));
+    const avg = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+    let bonus = 0;
+    if (prefs.prioritizeEco)       bonus += 3;
+    if (prefs.recyclablePackaging) bonus += 2;
+    if (prefs.ethicalBrands)       bonus += 2;
+    return Math.min(100, avg + bonus);
+  })();
   const c = userScore !== null ? getSustainabilityColor(userScore) : getSustainabilityColor(0);
 
-  const monthlyTrend = useMemo(() => computeMonthlyTrend(orders), [orders]);
+  const monthlyTrend = useMemo(() => computeMonthlyTrend(orders, getScore), [orders, ecoMap]);
   const maxTrend = monthlyTrend.length > 0 ? Math.max(...monthlyTrend.map((t) => t.score), 1) : 1;
 
   const ecoItems = useMemo(() => {
     const seen = new Set();
     return allItems
-      .map((i) => ({ ...i, susScore: getSustainabilityData(i.id).score }))
+      .map((i) => ({ ...i, susScore: getScore(i.id) }))
       .filter((i) => i.susScore >= 70 && !seen.has(i.id) && seen.add(i.id))
       .sort((a, b) => b.susScore - a.susScore)
       .slice(0, 5);
-  }, [allItems]);
+  }, [allItems, ecoMap]);
 
   const ecoCount = ecoItems.length;
   const certCount = useMemo(
-    () => allItems.filter((i) => getSustainabilityData(i.id).certified).length,
-    [allItems]
+    () => allItems.filter((i) => isCertified(i.id)).length,
+    [allItems, ecoMap]
   );
 
   const ecoCategories = useMemo(
@@ -68,7 +102,7 @@ export default function SustainabilityPage() {
 
   const sustainablePackagingPct =
     allItems.length > 0
-      ? Math.round((allItems.filter((i) => getSustainabilityData(i.id).recyclability >= 70).length / allItems.length) * 100)
+      ? Math.round((allItems.filter((i) => getScore(i.id) >= 70).length / allItems.length) * 100)
       : 0;
 
   const stats = [

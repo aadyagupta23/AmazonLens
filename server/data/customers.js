@@ -114,7 +114,7 @@ const REVIEW_TEMPLATES = {
 
 // ── Product catalogue (trustScore = DATA GENERATION SEED only, not TrustLens score) ──
 const PRODUCT_META = [
-  { id: "p001", seller: "Cloudtail India", trustScore: 71, price: 54999 },
+  { id: "p001", seller: "Cloudtail India", trustScore: 82, price: 54999 },
   { id: "p002", seller: "JBL Official Store", trustScore: 83, price: 8999 },
   { id: "p003", seller: "Appario Retail Pvt Ltd", trustScore: 91, price: 69999 },
   { id: "p004", seller: "boAt Official Store", trustScore: 48, price: 999 },
@@ -122,15 +122,15 @@ const PRODUCT_META = [
   { id: "p006", seller: "Samsung India Electronics", trustScore: 79, price: 32999 },
   { id: "p007", seller: "TTK Prestige Limited", trustScore: 86, price: 1895 },
   { id: "p008", seller: "Amazon", trustScore: 92, price: 6999 },
-  { id: "p009", seller: "EcoSmile Retail", trustScore: 89, price: 299 },
+  { id: "p009", seller: "EcoSmile Retail", trustScore: 93, price: 299 },
   { id: "p010", seller: "Milton Retail India", trustScore: 94, price: 949 },
-  { id: "p011", seller: "ITC Classmate Store", trustScore: 87, price: 360 },
+  { id: "p011", seller: "ITC Classmate Store", trustScore: 93, price: 360 },
   { id: "p012", seller: "Bewakoof Brands", trustScore: 50, price: 499 },
   { id: "p013", seller: "Appario Retail Pvt Ltd", trustScore: 91, price: 349 },
-  { id: "p014", seller: "Wipro Consumer Lighting", trustScore: 78, price: 599 },
+  { id: "p014", seller: "Wipro Consumer Lighting", trustScore: 84, price: 599 },
   { id: "p015", seller: "Ambrane India", trustScore: 52, price: 1499 },
   { id: "p016", seller: "Freudenberg Household India", trustScore: 86, price: 449 },
-  { id: "p017", seller: "Green Soul Ergonomics", trustScore: 88, price: 8499 },
+  { id: "p017", seller: "Green Soul Ergonomics", trustScore: 93, price: 8499 },
   { id: "p018", seller: "Portronics Digital", trustScore: 90, price: 699 },
   { id: "p019", seller: "Signify Innovations India", trustScore: 92, price: 1199 },
   { id: "p020", seller: "Appario Retail Pvt Ltd", trustScore: 93, price: 399 },
@@ -151,38 +151,38 @@ const PRODUCT_META = [
   { id: "p035", seller: "Cloudtail India", trustScore: 91, price: 3699 },
   { id: "p036", seller: "Samsung India Electronics", trustScore: 89, price: 13999 },
   { id: "p037", seller: "Amazon", trustScore: 94, price: 4499 },
-  { id: "p038", seller: "Wipro Consumer Lighting", trustScore: 76, price: 899 },
+  { id: "p038", seller: "Wipro Consumer Lighting", trustScore: 84, price: 899 },
 ];
 
 // ── Probability helpers (used for synthetic data generation only) ─────────────
 function returnProb(trustScore, customerMultiplier = 1.0) {
-  const base = trustScore >= 90 ? 0.04
-    : trustScore >= 82 ? 0.08
-      : trustScore >= 72 ? 0.13
-        : trustScore >= 60 ? 0.20
-          : 0.29;
+  const base = trustScore >= 90 ? 0.03
+    : trustScore >= 82 ? 0.06
+      : trustScore >= 73 ? 0.08
+        : trustScore >= 60 ? 0.12
+          : 0.25;
   return Math.min(0.55, base * customerMultiplier);
 }
 
 function reorderProb(trustScore, customerMultiplier = 1.0) {
-  const base = trustScore >= 90 ? 0.40
-    : trustScore >= 82 ? 0.31
-      : trustScore >= 72 ? 0.23
-        : trustScore >= 60 ? 0.15
-          : 0.08;
+  const base = trustScore >= 90 ? 0.43
+    : trustScore >= 82 ? 0.34
+      : trustScore >= 73 ? 0.26
+        : trustScore >= 60 ? 0.17
+          : 0.09;
   return Math.min(0.65, base * customerMultiplier);
 }
 
 function generateRating(trustScore, returned, r) {
   if (returned) {
-    if (trustScore >= 80) return r < 0.25 ? 1 : r < 0.60 ? 2 : 3;
-    if (trustScore >= 65) return r < 0.40 ? 1 : r < 0.75 ? 2 : 3;
-    return r < 0.55 ? 1 : r < 0.85 ? 2 : 3;
+    if (trustScore >= 80) return r < 0.20 ? 1 : r < 0.50 ? 2 : 3;
+    if (trustScore >= 65) return r < 0.35 ? 1 : r < 0.65 ? 2 : 3;
+    return r < 0.50 ? 1 : r < 0.80 ? 2 : 3;
   }
-  if (trustScore >= 90) return r < 0.65 ? 5 : r < 0.92 ? 4 : 3;
-  if (trustScore >= 80) return r < 0.45 ? 5 : r < 0.82 ? 4 : r < 0.95 ? 3 : 2;
-  if (trustScore >= 70) return r < 0.28 ? 5 : r < 0.65 ? 4 : r < 0.88 ? 3 : 2;
-  if (trustScore >= 60) return r < 0.15 ? 5 : r < 0.42 ? 4 : r < 0.73 ? 3 : r < 0.93 ? 2 : 1;
+  if (trustScore >= 90) return r < 0.70 ? 5 : r < 0.95 ? 4 : 3;
+  if (trustScore >= 82) return r < 0.55 ? 5 : r < 0.88 ? 4 : r < 0.97 ? 3 : 2;
+  if (trustScore >= 73) return r < 0.40 ? 5 : r < 0.78 ? 4 : r < 0.94 ? 3 : 2;
+  if (trustScore >= 60) return r < 0.22 ? 5 : r < 0.55 ? 4 : r < 0.80 ? 3 : r < 0.94 ? 2 : 1;
   return r < 0.07 ? 5 : r < 0.22 ? 4 : r < 0.50 ? 3 : r < 0.80 ? 2 : 1;
 }
 
@@ -674,6 +674,19 @@ export function recordActivity(customerId, activity) {
   if (c.orders.length) {
     c.returnRate = parseFloat((c.orders.filter((o) => o.returned).length / c.orders.length).toFixed(3));
     c.reorderRate = parseFloat((c.orders.filter((o) => o.reordered).length / c.orders.length).toFixed(3));
+  }
+  return c;
+}
+
+/** recordReturn — find customer by email and record a product return */
+export function recordReturn(email, productId, reason = "") {
+  const c = customers.find((x) => x.email.toLowerCase() === email.toLowerCase());
+  if (!c) return null;
+  const order = c.orders.find((o) => o.productId === productId && !o.returned);
+  if (order) {
+    order.returned = true;
+    order.returnReason = reason;
+    c.returnRate = parseFloat((c.orders.filter((o) => o.returned).length / c.orders.length).toFixed(3));
   }
   return c;
 }
