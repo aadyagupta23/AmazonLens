@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import Groq from 'groq-sdk';
+import { groqCall, FAST_MODEL } from '../utils/groqClient.js';
 
 const router = express.Router();
 
@@ -286,25 +286,13 @@ const SETUP_REQUIREMENTS = {
   },
 };
 
-// ─── Groq client (lazy — dotenv runs after module imports in ESM) ─────────────
-let groq = null;
-function getGroq() {
-  if (groq) return groq;
-  try {
-    if (process.env.GROQ_API_KEY) {
-      groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    }
-  } catch (_) {}
-  return groq;
-}
-
 // ─── AI Query Parser ─────────────────────────────────────────────────────────
 async function parseQueryWithAI(query) {
-  if (!getGroq()) return null;
+  if (!process.env.GROQ_API_KEY) return null;
   try {
-    const completion = await getGroq().chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 256,
+    const completion = await groqCall({
+      model: FAST_MODEL,
+      max_tokens: 200,
       messages: [
         {
           role: 'system',

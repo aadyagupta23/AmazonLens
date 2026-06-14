@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Groq from "groq-sdk";
+import { groqCall, PRIMARY_MODEL } from "../utils/groqClient.js";
 
 const router = Router();
 
@@ -45,23 +45,13 @@ const CATALOG = [
   { id: "p038", name: "Wipro 16A Smart Plug", category: "smart home" },
 ];
 
-let groq = null;
-function getGroq() {
-  if (groq) return groq;
-  try {
-    if (process.env.GROQ_API_KEY) {
-      groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    }
-  } catch (_) {}
-  return groq;
-}
 
 // POST /api/bundles/ai
 // Body: { recentOrder: [{id,name,category}], olderOrders: [...], allPurchasedIds: [...], history: [{name}] }
 router.post("/ai", async (req, res) => {
   const { recentOrder = [], olderOrders = [], allPurchasedIds = [], history = [] } = req.body;
 
-  if (!getGroq()) {
+  if (!process.env.GROQ_API_KEY) {
     return res.status(503).json({ message: "AI service unavailable" });
   }
 
@@ -164,9 +154,9 @@ Return ONLY valid JSON, no markdown, no extra text:
 }`;
 
   try {
-    const completion = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 900,
+    const completion = await groqCall({
+      model: PRIMARY_MODEL,
+      max_tokens: 600,
       temperature: 0.2,
       messages: [
         { role: "system", content: "You are a product bundle recommender. Return ONLY valid JSON with no markdown fences or extra text." },

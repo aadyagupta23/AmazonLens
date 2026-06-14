@@ -1,25 +1,14 @@
 import { Router } from "express";
-import Groq from "groq-sdk";
+import { groqCall, FAST_MODEL } from "../utils/groqClient.js";
 
 const router = Router();
-
-let groq = null;
-function getGroq() {
-  if (groq) return groq;
-  try {
-    if (process.env.GROQ_API_KEY) {
-      groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    }
-  } catch (_) {}
-  return groq;
-}
 
 // POST /api/returns/suggestions
 // Body: { productId, productName, brand, category }
 router.post("/suggestions", async (req, res) => {
   const { productId, productName, brand = "", category = "" } = req.body;
 
-  if (!getGroq()) return res.status(503).json({ message: "AI service unavailable" });
+  if (!process.env.GROQ_API_KEY) return res.status(503).json({ message: "AI service unavailable" });
   if (!productName) return res.status(400).json({ message: "productName is required" });
 
   const { products } = await import("../data/mockData.js");
@@ -56,10 +45,10 @@ Return ONLY valid JSON, no markdown:
 }`;
 
   try {
-    const completion = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+    const completion = await groqCall({
+      model: FAST_MODEL,
       temperature: 0.2,
-      max_tokens: 400,
+      max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     });
 
