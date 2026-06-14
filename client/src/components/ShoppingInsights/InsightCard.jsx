@@ -25,16 +25,19 @@ const ICON_TINT = {
  * 3 lines only: icon + metric + subtitle + CTA link.
  */
 export default function InsightCard({ insight }) {
-  const { value, subtext, cta, icon, accentColor } = insight;
+  const { title, value, subtext, cta, icon, accentColor } = insight;
 
   const Icon  = ICON_MAP[icon] || BarChart2;
   const tint  = ICON_TINT[accentColor] || ICON_TINT.blue;
 
   return (
     <div className="bg-white border border-[#DDD] rounded p-3.5 flex flex-col gap-2.5 hover:border-[#AAAAAA] hover:shadow-sm transition-all">
-      {/* Icon bubble */}
-      <div className={`w-9 h-9 rounded-full ${tint.bg} flex items-center justify-center`}>
-        <Icon size={16} className={tint.color} />
+      {/* Icon + label */}
+      <div className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded-full ${tint.bg} flex items-center justify-center flex-shrink-0`}>
+          <Icon size={14} className={tint.color} />
+        </div>
+        {title && <p className={`text-xs font-semibold ${tint.color} leading-tight`}>{title}</p>}
       </div>
 
       {/* Primary metric */}
