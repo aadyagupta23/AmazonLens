@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API } from "../utils/format.js";
+import { useSense } from "../contexts/SenseContext.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import SensePopup from "../components/SensePopup.jsx";
 import ContinueYourJourney from "../components/ContinueYourJourney/ContinueYourJourney.jsx";
@@ -49,10 +50,19 @@ export default function Homepage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [heroSlide, setHeroSlide] = useState(0);
+  const { getRecommendations, senseReady, profile } = useSense();
+  const [senseRecs, setSenseRecs] = useState([]);
 
   useEffect(() => {
     axios.get(`${API}/api/products?limit=8`).then(({ data }) => setProducts(data.products || []));
   }, []);
+
+  // Fetch Sense recommendations once profile is ready
+  useEffect(() => {
+    if (senseReady && profile?.mature) {
+      getRecommendations().then((recs) => { if (recs.length > 0) setSenseRecs(recs); });
+    }
+  }, [senseReady, profile?.mature]);
 
   useEffect(() => {
     const t = setInterval(() => setHeroSlide((s) => (s + 1) % HERO_SLIDES.length), 5000);
@@ -146,10 +156,15 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* ── 6. RECOMMENDED FOR YOU ── */}
+        {/* ── 6. RECOMMENDED FOR YOU (Amazon Sense-powered when available) ── */}
         <div className="bg-white rounded shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-[#0F1111] text-lg">Recommended for You</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-[#0F1111] text-lg">Recommended for You</h2>
+              {senseRecs.length > 0 && (
+                <span className="text-[10px] bg-[#FF9900]/10 text-[#B7800A] font-bold px-2 py-0.5 rounded-full">SENSE</span>
+              )}
+            </div>
             <button
               onClick={() => navigate("/s?q=recommended")}
               className="text-[#007185] hover:text-[#C7511F] text-sm hover:underline"
@@ -157,11 +172,19 @@ export default function Homepage() {
               See all →
             </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {products.slice(4).map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          {senseRecs.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {senseRecs.slice(0, 8).map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {products.slice(4).map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── 7. POPULAR SHOPPING LISTS ──
