@@ -14,74 +14,61 @@ export function CoPlannerProvider({ children }) {
   const [lastAddedProductId, setLastAddedProductId] = useState(null); // for green "Added" feedback
 
   const memberName = user?.name || "You";
+  const getStorageKey = () => user?.name ? `al_coplanner_plans_${user.name}` : "al_coplanner_plans";
 
-  // Load user's plans from localStorage + sync with server
+  // Load user's plans from server (single source of truth)
+  const [plansLoaded, setPlansLoaded] = useState(false);
+  
   useEffect(() => {
-    // Load from localStorage first for instant display
-    const stored = localStorage.getItem("al_coplanner_plans");
-    let localPlans = [];
-    if (stored) {
-      try { localPlans = JSON.parse(stored); } catch (_) {}
+    const userName = user?.name;
+    if (!userName) {
+      setPlans([]);
+      return;
     }
 
-    // Then sync with server to get any plans user joined from other devices/sessions
-    if (user?.name) {
-      fetch(`${API}/api/co-planner/my-plans?member=${encodeURIComponent(user.name)}`)
-        .then((r) => r.ok ? r.json() : { plans: [] })
-        .then(({ plans: serverPlans }) => {
-          // Merge: combine localStorage plans with server plans (deduplicate by ID)
-          const merged = new Map();
-          localPlans.forEach((p) => merged.set(p.id, p));
-          serverPlans.forEach((p) => merged.set(p.id, p));
-          const final = [...merged.values()];
-          setPlans(final);
-          localStorage.setItem("al_coplanner_plans", JSON.stringify(final));
-        })
-        .catch(() => {
-          // Fallback: just use localStorage, validate against server
-          Promise.all(
-            localPlans.map((p) =>
-              fetch(`${API}/api/co-planner/${p.id}`)
-                .then((r) => r.ok ? p : null)
-                .catch(() => null)
-            )
-          ).then((results) => {
-            const valid = results.filter(Boolean);
-            setPlans(valid);
-            localStorage.setItem("al_coplanner_plans", JSON.stringify(valid));
-          });
-        });
-    } else {
-      // Not logged in — just validate localStorage plans
-      if (localPlans.length > 0) {
-        Promise.all(
-          localPlans.map((p) =>
-            fetch(`${API}/api/co-planner/${p.id}`)
-              .then((r) => r.ok ? p : null)
-              .catch(() => null)
-          )
-        ).then((results) => {
-          const valid = results.filter(Boolean);
-          setPlans(valid);
-          localStorage.setItem("al_coplanner_plans", JSON.stringify(valid));
-        });
-      }
-    }
-  }, [user]);
-
-  // Save plans to localStorage
-  useEffect(() => {
-    localStorage.setItem("al_coplanner_plans", JSON.stringify(plans));
-  }, [plans]);
+    fetch(`${API}/api/co-planner/my-plans?member=${encodeURIComponent(userName)}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.json();
+      })
+      .then(({ plans: serverPlans }) => {
+        if (serverPlans && serverPlans.length > 0) {
+          setPlans(serverPlans);
+          localStorage.setItem(getStorageKey(), JSON.stringify(serverPlans));
+        } else {
+          const stored = localStorage.getItem(getStorageKey());
+          if (stored) {
+            try {
+              const local = JSON.parse(stored);
+              if (local.length > 0) setPlans(local);
+            } catch (_) {}
+          }
+        }
+        setPlansLoaded(true);
+      })
+      .catch(() => {
+        const stored = localStorage.getItem(getStorageKey());
+        if (stored) {
+          try {
+            const local = JSON.parse(stored);
+            if (local.length > 0) setPlans(local);
+          } catch (_) {}
+        }
+        setPlansLoaded(true);
+      });
+  }, [user?.name, memberName]);
 
   // Add plan to local tracking
   const trackPlan = useCallback((plan) => {
     setPlans((prev) => {
       const exists = prev.find((p) => p.id === plan.id);
-      if (exists) return prev.map((p) => p.id === plan.id ? { id: plan.id, name: plan.name, budget: plan.budget } : p);
-      return [...prev, { id: plan.id, name: plan.name, budget: plan.budget }];
+      const updated = exists
+        ? prev.map((p) => p.id === plan.id ? { id: plan.id, name: plan.name, budget: plan.budget } : p)
+        : [...prev, { id: plan.id, name: plan.name, budget: plan.budget }];
+      localStorage.setItem(getStorageKey(), JSON.stringify(updated));
+      return updated;
     });
-  }, []);
+  }, [user?.name]);
 
   // Create a new plan
   const createPlan = useCallback(async ({ name, description, budget, targetDate }) => {
@@ -107,7 +94,7 @@ export function CoPlannerProvider({ children }) {
         if (res.status === 404) {
           setPlans((prev) => {
             const updated = prev.filter((p) => p.id !== planId);
-            localStorage.setItem("al_coplanner_plans", JSON.stringify(updated));
+            localStorage.setItem(getStorageKey(), JSON.stringify(updated));
             return updated;
           });
         }
@@ -140,7 +127,7 @@ export function CoPlannerProvider({ children }) {
         // Plan not found on server — remove stale plan from local tracking
         if (res.status === 404) {
           setPlans((prev) => prev.filter((p) => p.id !== planId));
-          localStorage.setItem("al_coplanner_plans", JSON.stringify(plans.filter((p) => p.id !== planId)));
+          localStorage.setItem(getStorageKey(), JSON.stringify(plans.filter((p) => p.id !== planId)));
           return { error: true, message: "This plan no longer exists. It may have been deleted." };
         }
         return { error: true, message: data.message || "Failed to add item" };
@@ -196,7 +183,7 @@ export function CoPlannerProvider({ children }) {
     } catch (_) {}
     setPlans((prev) => {
       const updated = prev.filter((p) => p.id !== planId);
-      localStorage.setItem("al_coplanner_plans", JSON.stringify(updated));
+      localStorage.setItem(getStorageKey(), JSON.stringify(updated));
       return updated;
     });
     if (activePlan?.id === planId) setActivePlan(null);

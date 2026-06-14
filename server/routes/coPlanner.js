@@ -335,9 +335,10 @@ router.get("/my-plans", (req, res) => {
   if (!member) return res.json({ plans: [] });
 
   const userPlans = [];
+  const memberLower = member.toLowerCase();
   for (const [id, plan] of plans) {
     if (plan.status === "archived") continue;
-    if (plan.members.some((m) => m.name === member)) {
+    if (plan.members.some((m) => m.name.toLowerCase() === memberLower)) {
       userPlans.push({ id: plan.id, name: plan.name, budget: plan.budget });
     }
   }
