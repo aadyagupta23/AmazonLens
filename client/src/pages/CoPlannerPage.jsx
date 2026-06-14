@@ -19,6 +19,7 @@ const fmt = (n) => formatPrice(n);
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   need_to_buy: { label: "Need to Buy", color: "bg-gray-100 text-gray-700", dot: "bg-gray-400" },
+  partially_purchased: { label: "Partially Purchased", color: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
   assigned: { label: "Assigned", color: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },
   purchased: { label: "Purchased", color: "bg-green-50 text-green-700", dot: "bg-green-500" },
   delivered: { label: "Delivered", color: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
@@ -463,19 +464,27 @@ function PlansDashboard({ plans, onCreated, onOpenPlan, onDeletePlan }) {
 }
 
 // ─── PlanItem ─────────────────────────────────────────────────────────────────
-function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemove, onComment, onVote, onMoveToCart, index, onDragStart, onDragOver, onDrop, isDragging }) {
+function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemove, onComment, onVote, onMoveToCart, onMarkPurchased, onUpdateQuantity, index, onDragStart, onDragOver, onDrop, isDragging }) {
   const p = item.product;
   if (!p || !p.name) return null; // only hide if truly no data at all
+
+  const quantityNeeded = item.quantityNeeded || 1;
+  const quantityPurchased = item.quantityPurchased || 0;
+  const remaining = Math.max(0, quantityNeeded - quantityPurchased);
+  const progressPct = quantityNeeded > 0 ? Math.min(100, Math.round((quantityPurchased / quantityNeeded) * 100)) : 0;
 
   const isPurchased = item.status === "purchased" || item.status === "delivered";
   const assignedMember = members.find((m) => m.name === item.assignedTo);
   const priorityCfg = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.important;
+  const statusCfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.need_to_buy;
 
   const handleCheck = () => {
     if (isPurchased) {
-      onUpdateStatus(item.productId, "need_to_buy");
+      // Decrement by 1
+      onMarkPurchased(item.productId, -1);
     } else {
-      onUpdateStatus(item.productId, "purchased");
+      // Increment by 1
+      onMarkPurchased(item.productId, 1);
     }
   };
 
@@ -485,27 +494,29 @@ function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemo
       onDragStart={(e) => onDragStart(e, index)}
       onDragOver={(e) => onDragOver(e, index)}
       onDrop={(e) => onDrop(e, index)}
-      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+      className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
         isDragging ? "opacity-40 scale-95 border-[#FF9900] bg-amber-50" : isPurchased ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200 hover:border-gray-300"
       }`}
     >
       {/* Drag handle */}
-      <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0">
+      <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0 mt-1">
         <GripVertical size={16} />
       </div>
-
-      {/* Priority indicator — removed from item, shown in header instead */}
 
       {/* Checkbox */}
       <button
         onClick={handleCheck}
-        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors mt-1 ${
           isPurchased
             ? "bg-[#067D62] border-[#067D62] text-white"
-            : "border-gray-300 hover:border-[#FF9900]"
+            : item.status === "partially_purchased"
+              ? "bg-amber-100 border-amber-400 text-amber-600"
+              : "border-gray-300 hover:border-[#FF9900]"
         }`}
+        title={isPurchased ? "Decrement purchased" : "Mark 1 as purchased"}
       >
         {isPurchased && <CheckCircle2 size={12} />}
+        {item.status === "partially_purchased" && <span className="text-[8px] font-bold">{quantityPurchased}</span>}
       </button>
 
       {/* Product image */}
@@ -540,37 +551,67 @@ function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemo
             </select>
           )}
         </div>
+
+        {/* Quantity — Amazon style */}
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className="text-xs text-[#565959]">Qty:</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onUpdateQuantity(item.productId, -1)}
+              className="w-6 h-6 border border-gray-300 rounded flex items-center justify-center text-xs hover:bg-gray-50"
+            >−</button>
+            <span className="w-6 text-center text-xs font-bold">{quantityNeeded}</span>
+            <button
+              onClick={() => onUpdateQuantity(item.productId, 1)}
+              className="w-6 h-6 border border-gray-300 rounded flex items-center justify-center text-xs hover:bg-gray-50"
+            >+</button>
+          </div>
+        </div>
+
+        {/* Purchase progress — only show when there are purchases */}
+        {quantityPurchased > 0 && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[10px] text-green-700 font-medium">
+              Purchased: {quantityPurchased}/{quantityNeeded}
+            </span>
+            <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden max-w-[80px]">
+              <div className="h-full bg-green-500 rounded-full" style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Vote + Delete */}
-      <button
-        onClick={() => onVote(item.productId, "up")}
-        className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-gray-500 hover:text-[#FF9900] hover:bg-amber-50 rounded transition-colors flex-shrink-0"
-        title="Vote up"
-      >
-        <ThumbsUp size={12} /> {item.votes > 0 && <span className="font-bold">{item.votes}</span>}
-      </button>
-      <button
-        onClick={() => onVote(item.productId, "down")}
-        className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-gray-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-        title="Vote down"
-      >
-        <ThumbsDown size={12} /> {item.downvotes > 0 && <span className="font-bold">{item.downvotes}</span>}
-      </button>
-      <button
-        onClick={() => onMoveToCart(p)}
-        className="text-[10px] text-[#007185] hover:text-[#C7511F] hover:underline flex-shrink-0 px-1.5"
-        title="Move to Cart"
-      >
-        🛒
-      </button>
-      <button
-        onClick={() => onRemove(item.productId)}
-        className="p-1.5 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
-        title="Remove item"
-      >
-        <Trash2 size={14} />
-      </button>
+      <div className="flex items-center gap-0.5 flex-shrink-0">
+        <button
+          onClick={() => onVote(item.productId, "up")}
+          className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-gray-500 hover:text-[#FF9900] hover:bg-amber-50 rounded transition-colors"
+          title="Vote up"
+        >
+          <ThumbsUp size={12} /> {item.votes > 0 && <span className="font-bold">{item.votes}</span>}
+        </button>
+        <button
+          onClick={() => onVote(item.productId, "down")}
+          className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-gray-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          title="Vote down"
+        >
+          <ThumbsDown size={12} /> {item.downvotes > 0 && <span className="font-bold">{item.downvotes}</span>}
+        </button>
+        <button
+          onClick={() => onMoveToCart(p)}
+          className="text-[10px] text-[#007185] hover:text-[#C7511F] hover:underline flex-shrink-0 px-1.5"
+          title="Move to Cart"
+        >
+          🛒
+        </button>
+        <button
+          onClick={() => onRemove(item.productId)}
+          className="p-1.5 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+          title="Remove item"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -768,6 +809,41 @@ export default function CoPlannerPage() {
     if (data.plan) setPlan(data.plan);
   };
 
+  const markPurchased = async (productId, purchasedCount) => {
+    const res = await fetch(`${API}/api/co-planner/${plan.id}/mark-purchased`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, purchasedCount, memberName: currentUser }),
+    });
+    const data = await res.json();
+    if (data.plan) setPlan(data.plan);
+  };
+
+  const updateQuantity = async (productId, delta) => {
+    if (delta > 0) {
+      // Increase
+      const res = await fetch(`${API}/api/co-planner/${plan.id}/increase-quantity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, additionalQuantity: 1, memberName: currentUser }),
+      });
+      const data = await res.json();
+      if (data.plan) setPlan(data.plan);
+    } else {
+      // Decrease (minimum 1)
+      const item = plan.items.find((i) => i.productId === productId);
+      if (item && (item.quantityNeeded || 1) > 1) {
+        const res = await fetch(`${API}/api/co-planner/${plan.id}/increase-quantity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId, additionalQuantity: -1, memberName: currentUser }),
+        });
+        const data = await res.json();
+        if (data.plan) setPlan(data.plan);
+      }
+    }
+  };
+
   const removeItem = async (productId) => {
     const res = await fetch(`${API}/api/co-planner/${plan.id}/remove-item`, {
       method: "POST",
@@ -933,6 +1009,10 @@ export default function CoPlannerPage() {
             <p className="text-[10px] text-gray-500 uppercase tracking-wider">Remaining</p>
             <p className="text-lg font-bold text-green-700">{fmt(stats.remaining)}</p>
           </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Qty Progress</p>
+            <p className="text-lg font-bold text-[#0F1111]">{stats.totalPurchased || 0}<span className="text-xs text-gray-400 font-normal">/{stats.totalNeeded || 0}</span></p>
+          </div>
         </div>
 
         {/* Budget bar */}
@@ -961,7 +1041,7 @@ export default function CoPlannerPage() {
           <div className="lg:col-span-2 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-[#0F1111] flex items-center gap-1.5">
-                <Package size={15} /> Items ({stats.itemCount})
+                <Package size={15} /> Items ({stats.totalNeeded || stats.itemCount})
                 <span className="text-[10px] font-normal text-gray-400 ml-2">
                   Priority ⬆
                 </span>
@@ -996,6 +1076,8 @@ export default function CoPlannerPage() {
                   onRemove={removeItem}
                   onVote={voteItem}
                   onMoveToCart={moveItemToCart}
+                  onMarkPurchased={markPurchased}
+                  onUpdateQuantity={updateQuantity}
                   onDragStart={handleDragStart}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
