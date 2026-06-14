@@ -1,8 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Package, ChevronRight } from "lucide-react";
+import { Package, ChevronRight, Sparkles } from "lucide-react";
 
 import { bundles, products } from "../../../server/data/mockData.js";
+import ProductCard from "../components/ProductCard.jsx";
 
 function CompletenessRing({ pct }) {
   const color =
@@ -35,8 +36,72 @@ function CompletenessRing({ pct }) {
   );
 }
 
+function AiBundleCard({ bundle }) {
+  const navigate = useNavigate();
+  const resolvedProducts = (bundle.items || [])
+    .map((i) => products.find((p) => p.id === i.productId))
+    .filter(Boolean);
+  const total = resolvedProducts.reduce((s, p) => s + p.price, 0);
+  const fmt = (n) => `₹${n >= 1000 ? (n / 1000).toFixed(1) + "K" : n}`;
+
+  return (
+    <div
+      className="bg-white rounded-xl border-2 border-[#007185]/30 shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer group"
+      onClick={() => navigate(`/bundles/${bundle.id}`)}
+    >
+      <div className="bg-gradient-to-r from-[#004B91] to-[#007185] text-white p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="flex items-center gap-1 text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full">
+            <Sparkles size={9} /> AI Personalized
+          </span>
+          {bundle.confidence && (
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">
+              {bundle.confidence}% match
+            </span>
+          )}
+        </div>
+        <h2 className="text-lg font-bold leading-snug group-hover:text-[#FFD814] transition-colors">{bundle.title}</h2>
+        <p className="text-xs text-white/80 mt-1.5 line-clamp-2">{bundle.reason}</p>
+      </div>
+
+      <div className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex -space-x-2.5">
+            {resolvedProducts.slice(0, 4).map((p) => (
+              <img key={p.id} src={p.thumbnail} alt={p.name}
+                className="w-11 h-11 rounded-full border-2 border-white object-contain bg-[#F7F8F8]"
+                onError={(e) => { e.target.style.display = "none"; }} />
+            ))}
+            {resolvedProducts.length > 4 && (
+              <div className="w-11 h-11 rounded-full border-2 border-white bg-[#F7F8F8] flex items-center justify-center text-xs font-bold text-[#565959]">
+                +{resolvedProducts.length - 4}
+              </div>
+            )}
+          </div>
+          <div className="ml-2">
+            <p className="text-sm font-medium text-[#0F1111]">{resolvedProducts.length} items</p>
+            <p className="text-xs text-[#565959]">Est. total: {fmt(total)}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate(`/bundles/${bundle.id}`); }}
+          className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm border border-[#FFA41C]"
+        >
+          Explore Bundle <ChevronRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function BundlesPage() {
   const navigate = useNavigate();
+
+  const aiBundles = (() => {
+    try { return JSON.parse(localStorage.getItem("amz_ai_bundles") || "[]"); }
+    catch { return []; }
+  })();
 
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-6">
@@ -48,6 +113,22 @@ export default function BundlesPage() {
         </p>
       </div>
 
+      {aiBundles.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xl font-bold text-[#0F1111]">For You</h2>
+            <span className="flex items-center gap-1 text-xs text-[#007185] bg-[#E6F2F2] px-2 py-0.5 rounded-full font-semibold">
+              <Sparkles size={11} /> Built from your orders
+            </span>
+          </div>
+          <div className="grid md:grid-cols-2 gap-5 mb-2">
+            {aiBundles.map((b) => <AiBundleCard key={b.id} bundle={b} />)}
+          </div>
+          <hr className="mt-8 mb-6 border-[#DDD]" />
+        </div>
+      )}
+
+      <h2 className="text-xl font-bold text-[#0F1111] mb-4">All Bundles</h2>
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
         {bundles.map((bundle) => {
           const resolvedProducts = bundle.products

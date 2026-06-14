@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { bundles, products } from "../../../server/data/mockData.js";
 import ProductCard from "../components/ProductCard.jsx";
@@ -11,8 +11,8 @@ import {
   TrendingDown,
   ChevronLeft,
   Plus,
-  AlertCircle,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 
@@ -21,24 +21,6 @@ function trustColor(score) {
   if (score >= 80) return "text-green-700";
   if (score >= 60) return "text-yellow-600";
   return "text-red-600";
-}
-
-// ── Completeness progress bar ────────────────────────────────────────────────
-function CompletenessBar({ pct }) {
-  const color =
-    pct >= 80
-      ? "bg-green-500"
-      : pct >= 60
-      ? "bg-yellow-400"
-      : "bg-orange-400";
-  return (
-    <div className="w-full bg-[#E7E7E7] rounded-full h-3 overflow-hidden">
-      <div
-        className={`${color} h-3 rounded-full transition-all duration-700`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
 }
 
 // ── Inline add-on card (for Frequently Added Items) ─────────────────────────
@@ -100,13 +82,45 @@ export default function BundleDetailPage() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
+  useEffect(() => { window.scrollTo(0, 0); }, [bundleId]);
+
   // Track which add-ons have been added this session (for button feedback)
   const [addedAddons, setAddedAddons] = useState({});
   // Toast state for "Add Entire Setup" confirmation
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  const bundle = bundles.find((b) => b.id === bundleId);
+  // Check AI bundles from localStorage first, then fall back to static mockData
+  const rawBundle = bundles.find((b) => b.id === bundleId) || (() => {
+    try {
+      const ai = JSON.parse(localStorage.getItem("amz_ai_bundles") || "[]");
+      const found = ai.find((b) => b.id === bundleId);
+      if (!found) return null;
+      // Normalise AI bundle shape to match static bundle shape
+      const resolvedPrices = (found.items || [])
+        .map((i) => products.find((p) => p.id === i.productId))
+        .filter(Boolean);
+      const total = resolvedPrices.reduce((s, p) => s + p.price, 0);
+      const originalTotal = resolvedPrices.reduce((s, p) => s + (p.originalPrice || p.price), 0);
+      return {
+        id: found.id,
+        name: found.title,
+        tagline: found.reason,
+        products: (found.items || []).map((i) => i.productId),
+        totalPrice: total,
+        originalTotal,
+        savings: originalTotal - total,
+        completeness: 100,
+        missingItems: [],
+        suggestedAddons: [],
+        isAiBundle: true,
+        tag: found.tag,
+        confidence: found.confidence,
+      };
+    } catch { return null; }
+  })();
+
+  const bundle = rawBundle;
 
   if (!bundle) {
     return (
@@ -171,8 +185,6 @@ export default function BundleDetailPage() {
     showToast(`"${product.name.slice(0, 40)}..." added to cart`);
   }
 
-  const completeness = bundle.completeness ?? 100;
-  const missingItems = bundle.missingItems ?? [];
 
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-6">
@@ -205,6 +217,11 @@ export default function BundleDetailPage() {
             <span className="text-[#FFD814] text-xs font-bold uppercase tracking-widest">
               Shopping Bundle
             </span>
+            {bundle.isAiBundle && (
+              <span className="flex items-center gap-1 text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                <Sparkles size={9} /> AI Personalized · {bundle.confidence}% match
+              </span>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
             {bundle.name}
@@ -255,20 +272,20 @@ export default function BundleDetailPage() {
           </div>
 
           {/* Add Entire Setup to Cart */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleAddEntireSetup}
               className="flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00]
                 active:bg-[#E8BB00] text-[#0F1111] font-bold
-                px-6 py-3 rounded-lg text-sm transition-colors
+                px-4 py-2 rounded-lg text-xs transition-colors
                 border border-[#FFA41C] shadow-sm"
             >
-              <ShoppingCart size={16} />
+              <ShoppingCart size={14} />
               Add Entire Setup to Cart
             </button>
 
-            <div className="flex items-center gap-2 text-xs text-[#565959]">
-              <TrendingDown size={13} className="text-green-600" />
+            <div className="flex items-center gap-1.5 text-xs text-[#565959]">
+              <TrendingDown size={12} className="text-green-600" />
               <span>
                 Save{" "}
                 <span className="font-bold text-green-700">{totalSavingsPct}%</span>{" "}
@@ -295,61 +312,6 @@ export default function BundleDetailPage() {
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-      </div>
-
-      {/* ── SETUP COMPLETENESS ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-[#DDD] p-5 mb-5 shadow-sm">
-        <h2 className="text-lg font-bold text-[#0F1111] mb-4">
-          Setup Completeness
-        </h2>
-
-        <div className="flex items-end gap-3 mb-3">
-          <span
-            className={`text-4xl font-bold ${
-              completeness >= 80
-                ? "text-green-700"
-                : completeness >= 60
-                ? "text-yellow-600"
-                : "text-orange-500"
-            }`}
-          >
-            {completeness}%
-          </span>
-          <span className="text-[#565959] text-sm pb-1">Complete</span>
-        </div>
-
-        <CompletenessBar pct={completeness} />
-
-        <p className="text-xs text-[#565959] mt-2 mb-4">
-          {completeness >= 80
-            ? "This setup is nearly complete — a few extras will make it perfect."
-            : completeness >= 60
-            ? "Good foundation! A few additions will round this out significantly."
-            : "Core essentials covered. Consider the items below for a full setup."}
-        </p>
-
-        {missingItems.length > 0 && (
-          <div className="border-t border-[#EBEBEB] pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={14} className="text-[#C45500]" />
-              <span className="text-sm font-semibold text-[#0F1111]">
-                What's missing
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {missingItems.map((item) => (
-                <span
-                  key={item}
-                  className="inline-flex items-center gap-1.5 text-xs bg-[#FFF3E8] text-[#C45500]
-                    border border-[#F5CBA7] px-3 py-1.5 rounded-full font-medium"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C45500] flex-shrink-0" />
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── FREQUENTLY ADDED ITEMS ─────────────────────────────────────── */}
@@ -384,12 +346,12 @@ export default function BundleDetailPage() {
           Why this bundle?
         </h2>
         <p className="text-[#565959] text-sm leading-relaxed">
-          This bundle groups products that are frequently purchased together
-          and are curated to help complete a specific shopping goal. TrustLens
-          analysis gives this setup an average trust score of{" "}
-          <span className={`font-bold ${trustColor(avgTrust)}`}>{avgTrust}</span>{" "}
-          across all {bundleProducts.length} included products — meaning you're
-          getting both value and verified quality in one go.
+          {bundle.isAiBundle
+            ? bundle.tagline
+            : `This bundle groups products that are frequently purchased together and are curated to help complete a specific shopping goal. TrustLens analysis gives this setup an average trust score of `}
+          {!bundle.isAiBundle && (
+            <><span className={`font-bold ${trustColor(avgTrust)}`}>{avgTrust}</span>{" "}across all {bundleProducts.length} included products — meaning you're getting both value and verified quality in one go.</>
+          )}
         </p>
 
         {bundle.savings > 0 && (

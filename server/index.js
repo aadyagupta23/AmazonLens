@@ -16,6 +16,7 @@ import priceDropRoutes from "./routes/priceDrop.js";
 import coPlannerRoutes from "./routes/coPlanner.js";
 import customerRoutes from "./routes/customers.js";
 import companyRoutes from "./routes/companies.js";
+import bundleRoutes from "./routes/bundles.js";
 import {
   getProductWitnesses,
   registerWitness,
@@ -151,6 +152,7 @@ app.use("/api/co-planner", coPlannerRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/dna", dnaRoutes);
+app.use("/api/bundles", bundleRoutes);
 
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
 
