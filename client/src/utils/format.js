@@ -16,4 +16,4 @@ export const getTrustColor = (score) => {
   return { bg: "bg-[#CC0C39]", text: "text-white", label: "Suspicious", hex: "#CC0C39" };
 };
 
-export const API = "http://localhost:5000";
+export const API = "http://localhost:5001";
