@@ -5,6 +5,9 @@ import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { formatPrice, API } from "../utils/format.js";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
+import { useDna } from "../contexts/DnaContext.jsx";
+import ReturnRiskBadge from "../components/ReturnRiskBadge.jsx";
+
 import { getUserSustainabilityScore, getSustainabilityData, getSustainabilityColor } from "../utils/sustainability.js";
 import { Trash2, RefreshCw, ShoppingBag, Clock, Leaf, Users, Eye, EyeOff, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
 import axios from "axios";

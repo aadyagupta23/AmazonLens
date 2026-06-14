@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { Leaf, User, Package, Heart, Clock, ChevronRight, Pencil, Check, X } from "lucide-react";
+import DnaPanel from "../components/DnaPanel.jsx";
 
 export default function AccountPage() {
   const { user, realUser, logout, updateProfile } = useAuth();
@@ -112,7 +113,10 @@ export default function AccountPage() {
           </Link>
         ))}
       </div>
-
+      {/* ── AMAZON LENS DNA ── */}
+    <div className="mb-4">
+      <DnaPanel />
+    </div>
       {/* ── SUSTAINABILITY PREFERENCES ── */}
       <div className="bg-white border border-[#DDD] rounded p-5 mb-4">
         <div className="flex items-center justify-between mb-4">

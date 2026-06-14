@@ -21,11 +21,13 @@ import BundlesPage from "./pages/BundlesPage.jsx";
 import BundleDetailPage from "./pages/BundleDetailPage.jsx";
 import WitnessPortal from "./pages/WitnessPortal.jsx";
 import { WitnessProvider } from "./contexts/WitnessContext.jsx";
+import { DnaProvider } from "./contexts/DnaContext.jsx";
 import WitnessToast from "./components/WitnessToast.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
 
 export default function App() {
   return (
+    <DnaProvider>
     <WitnessProvider>
     <div className="min-h-screen bg-[#EAEDED]">
       <Navbar />
@@ -62,5 +64,6 @@ export default function App() {
       </Routes>
     </div>
     </WitnessProvider>
+  </DnaProvider>
   );
 }

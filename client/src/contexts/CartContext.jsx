@@ -22,12 +22,16 @@ export function CartProvider({ children }) {
   };
 
   const addToCart = (product, qty = 1) => {
-    _set((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
-      if (existing) return prev.map((i) => (i.id === product.id ? { ...i, qty: i.qty + qty } : i));
-      return [...prev, { ...product, qty }];
-    });
-  };
+      _set((prev) => {
+        const existing = prev.find((i) => i.id === product.id);
+        if (existing) return prev.map((i) => (i.id === product.id ? { ...i, qty: i.qty + qty } : i));
+        return [...prev, { ...product, qty }];
+      });
+      // Fire DNA event via custom DOM event (avoids circular context imports)
+      window.dispatchEvent(new CustomEvent("dna:event", {
+        detail: { type: "cart_add", product }
+      }));
+    };
 
   const removeFromCart = (productId) => _set((prev) => prev.filter((i) => i.id !== productId));
 

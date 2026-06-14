@@ -12,6 +12,8 @@ import StarRating from "../components/StarRating.jsx";
 import TrustPanel from "../components/TrustLens/TrustPanel.jsx";
 import UserTrustVote from "../components/TrustLens/UserTrustVote.jsx";
 import MockReturn from "../components/TrustLens/MockReturn.jsx";
+import { useDna } from "../contexts/DnaContext.jsx";
+import ReturnRiskBadge from "../components/ReturnRiskBadge.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
 import PriceDropPrediction from "../components/TrustLens/PriceDropPrediction.jsx";
 import WitnessPanel from "../components/WitnessPanel/WitnessPanel.jsx";
@@ -29,7 +31,7 @@ export default function ProductPage() {
   const { addToHistory } = useHistory();
   const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
-
+  const { recordEvent } = useDna();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -96,6 +98,10 @@ export default function ProductPage() {
       .catch(() => navigate("/"))
       .finally(() => setLoading(false));
   }, [productId]);
+  useEffect(() => {
+      if (product) recordEvent("view", product);
+    }, [product?.id]);
+
 
   const handleAddToCart = () => {
     addToCart(product, qty);
@@ -559,6 +565,7 @@ export default function ProductPage() {
                     </span>
                   ) : "Add to Cart"}
                 </button>
+                <ReturnRiskBadge product={product} />
                 <button
                   onClick={handleBuyNow}
                   className="w-full bg-[#FFA41C] hover:bg-[#FF8F00] text-[#0F1111] py-2.5 rounded-full text-sm font-bold"

@@ -10,6 +10,7 @@ import productRoutes from "./routes/products.js";
 import witnessRoutes from "./routes/witness.js";
 import senseRoutes from "./routes/sense.js";
 import authRoutes from "./routes/auth.js";
+import dnaRoutes from "./routes/dna.js";
 import smartSearch from "./routes/smartSearch.js";
 import priceDropRoutes from "./routes/priceDrop.js";
 import coPlannerRoutes from "./routes/coPlanner.js";
@@ -149,6 +150,7 @@ app.use("/api/price-drop", priceDropRoutes);
 app.use("/api/co-planner", coPlannerRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/companies", companyRoutes);
+app.use("/api/dna", dnaRoutes);
 
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
 
