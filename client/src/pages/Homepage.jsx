@@ -29,7 +29,7 @@ const HERO_SLIDES = [
     title: "Prime Members Save More",
     subtitle: "Exclusive deals on Sony, Samsung, Apple & more",
     cta: "Explore Deals",
-    query: "home theatre setup under 40000",
+    query: "deals",
     badge: "PRIME",
   },
 ];
@@ -130,29 +130,7 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* ── 4. TRUSTLENS BANNER ── */}
-        <div className="bg-gradient-to-r from-[#131921] to-[#1d2d3e] rounded p-5 text-white">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[#FF9900] text-lg">🔍</span>
-                <span className="text-[#FF9900] text-xs font-bold uppercase tracking-wide">New Feature</span>
-              </div>
-              <h2 className="text-xl font-bold mb-1">Introducing TrustLens™</h2>
-              <p className="text-gray-300 text-sm max-w-xl">
-                See 12-month price history, trust scores, and real owner insights on every product — so you shop with confidence, not dark patterns.
-              </p>
-            </div>
-            <button
-              onClick={() => navigate("/dp/p001")}
-              className="flex-shrink-0 bg-[#FFD814] hover:bg-[#F7CA00] text-[#131921] font-bold px-5 py-2.5 rounded-full text-sm"
-            >
-              Try it on Sony TV →
-            </button>
-          </div>
-        </div>
-
-        {/* ── 5. DEAL OF THE DAY ── */}
+        {/* ── 4. DEAL OF THE DAY ── */}
         <div className="bg-white rounded shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-[#0F1111] text-lg">Deal of the Day</h2>

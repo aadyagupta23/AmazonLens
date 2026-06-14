@@ -21,11 +21,14 @@ import BundlesPage from "./pages/BundlesPage.jsx";
 import BundleDetailPage from "./pages/BundleDetailPage.jsx";
 import WitnessPortal from "./pages/WitnessPortal.jsx";
 import { WitnessProvider } from "./contexts/WitnessContext.jsx";
+import { DnaProvider } from "./contexts/DnaContext.jsx";
 import WitnessToast from "./components/WitnessToast.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
+import MyReviewsPage from "./pages/MyReviewsPage.jsx";
 
 export default function App() {
   return (
+    <DnaProvider>
     <WitnessProvider>
     <div className="min-h-screen bg-[#EAEDED]">
       <Navbar />
@@ -58,9 +61,11 @@ export default function App() {
         <Route path="/minitv" element={<StubPage />} />
         <Route path="/witness" element={<WitnessPortal />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/my-reviews" element={<MyReviewsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
     </WitnessProvider>
+  </DnaProvider>
   );
 }

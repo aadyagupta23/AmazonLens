@@ -5,6 +5,8 @@ import { API, formatPrice } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useHistory } from "../contexts/HistoryContext.jsx";
+import { useReviews } from "../contexts/ReviewsContext.jsx";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { getSustainabilityData } from "../utils/sustainability.js";
@@ -12,6 +14,8 @@ import StarRating from "../components/StarRating.jsx";
 import TrustPanel from "../components/TrustLens/TrustPanel.jsx";
 import UserTrustVote from "../components/TrustLens/UserTrustVote.jsx";
 import MockReturn from "../components/TrustLens/MockReturn.jsx";
+import { useDna } from "../contexts/DnaContext.jsx";
+import ReturnRiskBadge from "../components/ReturnRiskBadge.jsx";
 import SuspiciousReviews from "../components/TrustLens/SuspiciousReviews.jsx";
 import PriceDropPrediction from "../components/TrustLens/PriceDropPrediction.jsx";
 import WitnessPanel from "../components/WitnessPanel/WitnessPanel.jsx";
@@ -27,9 +31,11 @@ export default function ProductPage() {
   const { addToCart } = useCart();
   const { toggle: toggleWishlist, isInWishlist } = useWishlist();
   const { addToHistory } = useHistory();
+  const { saveReview, hasReviewed } = useReviews();
+  const { user: authUser, realUser } = useAuth();
   const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
-
+  const { recordEvent } = useDna();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -96,6 +102,10 @@ export default function ProductPage() {
       .catch(() => navigate("/"))
       .finally(() => setLoading(false));
   }, [productId]);
+  useEffect(() => {
+      if (product) recordEvent("view", product);
+    }, [product?.id]);
+
 
   const handleAddToCart = () => {
     addToCart(product, qty);
@@ -115,17 +125,27 @@ export default function ProductPage() {
     setReviewError("");
     try {
       const { data: newReview } = await axios.post(`${API}/api/customers/reviews`, {
-        name: reviewForm.name,
-        email: reviewForm.email,
-        password: reviewForm.password,
+        name: authUser?.name || "Anonymous",
+        email: authUser?.email || "",
         productId,
         seller: product?.soldBy,
         rating: reviewForm.rating,
         title: reviewForm.title,
         body: reviewForm.body,
       });
+      // prepend so new review appears at top + update count
       setDbReviews((prev) => [newReview, ...prev]);
       setReviewsTotal((t) => t + 1);
+      // also save to localStorage for My Reviews page
+      saveReview({
+        productId,
+        productName: product.name,
+        productThumbnail: product.thumbnail,
+        rating: reviewForm.rating,
+        title: reviewForm.title,
+        body: reviewForm.body,
+        date: new Date().toISOString(),
+      });
       setReviewSuccess(true);
       setReviewForm({ name: "", email: "", password: "", rating: 0, hoverRating: 0, title: "", body: "" });
     } catch (err) {
@@ -147,6 +167,19 @@ export default function ProductPage() {
 
   const nonSuspicious = (product.reviews || []).filter((r) => !r.suspicious);
   const sustainData = getSustainabilityData(product.id);
+
+  // Live rating computed from all loaded reviews (updates when new review submitted)
+  const liveRating = dbReviews.length > 0
+    ? parseFloat((dbReviews.reduce((s, r) => s + r.rating, 0) / dbReviews.length).toFixed(1))
+    : product.rating;
+
+  // Star distribution from loaded reviews (falls back to static percentages)
+  const starDist = dbReviews.length > 0
+    ? [5, 4, 3, 2, 1].map((star) => {
+        const cnt = dbReviews.filter((r) => r.rating === star).length;
+        return { star, pct: Math.round((cnt / dbReviews.length) * 100) };
+      })
+    : [5, 4, 3, 2, 1].map((star, i) => ({ star, pct: [52, 28, 12, 5, 3][i] }));
 
   return (
     <div className="bg-white min-h-screen">
@@ -224,7 +257,7 @@ export default function ProductPage() {
             <h1 className="text-xl font-medium text-[#0F1111] mt-1 leading-snug">{product.name}</h1>
 
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              <StarRating rating={product.rating} count={reviewsTotal || product.reviewCount} size="md" />
+              <StarRating rating={liveRating} count={reviewsTotal || product.reviewCount} size="md" />
               <span className="text-xs text-[#565959]">|</span>
               <a href="#reviews" className="text-xs text-[#007185] hover:underline">
                 {(reviewsTotal || product.reviewCount).toLocaleString("en-IN")} ratings
@@ -332,24 +365,96 @@ export default function ProductPage() {
               <h2 className="font-bold text-[#0F1111] text-base mb-4">Customer Reviews</h2>
               <div className="flex items-start gap-6 mb-4 flex-wrap">
                 <div className="text-center">
-                  <div className="text-5xl font-bold text-[#0F1111]">{product.rating}</div>
-                  <StarRating rating={product.rating} size="sm" />
+                  <div className="text-5xl font-bold text-[#0F1111]">{liveRating}</div>
+                  <StarRating rating={liveRating} size="sm" />
                   <div className="text-xs text-[#565959] mt-1">out of 5</div>
                 </div>
                 <div className="flex-1 min-w-48">
-                  {[5, 4, 3, 2, 1].map((star) => {
-                    const pct = star === 5 ? 52 : star === 4 ? 28 : star === 3 ? 12 : star === 2 ? 5 : 3;
-                    return (
-                      <div key={star} className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-[#007185] hover:underline cursor-pointer w-10">{star} star</span>
-                        <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-                          <div className="bg-[#FF9900] h-full rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-xs text-[#007185] w-8">{pct}%</span>
+                  {starDist.map(({ star, pct }) => (
+                    <div key={star} className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-[#007185] hover:underline cursor-pointer w-10">{star} star</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div className="bg-[#FF9900] h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                       </div>
-                    );
-                  })}
+                      <span className="text-xs text-[#007185] w-8">{pct}%</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              {/* ── WRITE A REVIEW (above list) ── */}
+              <div className="mb-6 border border-gray-200 rounded-lg p-4 bg-[#FAFAFA]">
+                <h3 className="font-bold text-[#0F1111] text-sm mb-3">Write a customer review</h3>
+                {reviewSuccess ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+                    ✓ Your review has been submitted and now appears at the top.
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmitReview} className="space-y-3">
+                    {/* Reviewing as */}
+                    <div className="flex items-center gap-2 text-sm text-[#565959]">
+                      <div className="w-6 h-6 rounded-full bg-[#232F3E] text-white text-xs flex items-center justify-center font-bold flex-shrink-0">
+                        {authUser?.name?.[0]?.toUpperCase() || "?"}
+                      </div>
+                      Reviewing as <span className="font-medium text-[#0F1111]">{authUser?.name || "Guest"}</span>
+                    </div>
+
+                    {/* Star rating */}
+                    <div>
+                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Overall rating</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setReviewForm((f) => ({ ...f, rating: s }))}
+                            onMouseEnter={() => setReviewForm((f) => ({ ...f, hoverRating: s }))}
+                            onMouseLeave={() => setReviewForm((f) => ({ ...f, hoverRating: 0 }))}
+                            className="p-0.5"
+                          >
+                            <Star
+                              size={24}
+                              className={s <= (reviewForm.hoverRating || reviewForm.rating) ? "text-[#FF9900] fill-[#FF9900]" : "text-gray-300"}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Review headline</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="What's most important to know?"
+                        value={reviewForm.title}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, title: e.target.value }))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Your review</label>
+                      <textarea
+                        required
+                        rows={3}
+                        placeholder="What did you like or dislike? What did you use this product for?"
+                        value={reviewForm.body}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, body: e.target.value }))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900] resize-none"
+                      />
+                    </div>
+
+                    {reviewError && <p className="text-xs text-red-600">{reviewError}</p>}
+
+                    <button
+                      type="submit"
+                      disabled={reviewSubmitting}
+                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-bold px-6 py-2 rounded-full disabled:opacity-50"
+                    >
+                      {reviewSubmitting ? "Submitting…" : "Submit review"}
+                    </button>
+                  </form>
+                )}
               </div>
 
               {/* Review list — from customer database */}
@@ -388,120 +493,7 @@ export default function ProductPage() {
                   </button>
                 )}
                 {!reviewsLoading && dbReviews.length === 0 && (
-                  <p className="text-sm text-[#565959]">No reviews yet. Be the first to review this product!</p>
-                )}
-              </div>
-
-              {/* ── WRITE A REVIEW ── */}
-              <div className="mt-8 border-t border-gray-200 pt-6">
-                <h3 className="font-bold text-[#0F1111] text-sm mb-4">Write a customer review</h3>
-                {reviewSuccess ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
-                    Thank you! Your review has been submitted successfully.
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmitReview} className="space-y-4">
-                    {/* Star rating picker */}
-                    <div>
-                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Overall rating</label>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setReviewForm((f) => ({ ...f, rating: s }))}
-                            onMouseEnter={() => setReviewForm((f) => ({ ...f, hoverRating: s }))}
-                            onMouseLeave={() => setReviewForm((f) => ({ ...f, hoverRating: 0 }))}
-                            className="p-0.5"
-                          >
-                            <Star
-                              size={24}
-                              className={
-                                s <= (reviewForm.hoverRating || reviewForm.rating)
-                                  ? "text-[#FF9900] fill-[#FF9900]"
-                                  : "text-gray-300"
-                              }
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Title + Body */}
-                    <div>
-                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Review headline</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="What's most important to know?"
-                        value={reviewForm.title}
-                        onChange={(e) => setReviewForm((f) => ({ ...f, title: e.target.value }))}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-[#0F1111] block mb-1">Your review</label>
-                      <textarea
-                        required
-                        rows={4}
-                        placeholder="What did you like or dislike? What did you use this product for?"
-                        value={reviewForm.body}
-                        onChange={(e) => setReviewForm((f) => ({ ...f, body: e.target.value }))}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900] resize-none"
-                      />
-                    </div>
-
-                    <hr className="border-gray-200" />
-                    <p className="text-xs text-[#565959]">Sign in or create an account to save your review</p>
-
-                    {/* Name + Email + Password */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-[#0F1111] block mb-1">Full name</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Your name"
-                          value={reviewForm.name}
-                          onChange={(e) => setReviewForm((f) => ({ ...f, name: e.target.value }))}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-[#0F1111] block mb-1">Email address</label>
-                        <input
-                          type="email"
-                          required
-                          placeholder="you@email.com"
-                          value={reviewForm.email}
-                          onChange={(e) => setReviewForm((f) => ({ ...f, email: e.target.value }))}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-[#0F1111] block mb-1">Password</label>
-                        <input
-                          type="password"
-                          placeholder="Create a password"
-                          value={reviewForm.password}
-                          onChange={(e) => setReviewForm((f) => ({ ...f, password: e.target.value }))}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
-                        />
-                      </div>
-                    </div>
-
-                    {reviewError && (
-                      <p className="text-xs text-red-600">{reviewError}</p>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={reviewSubmitting}
-                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-bold px-6 py-2 rounded-full disabled:opacity-50"
-                    >
-                      {reviewSubmitting ? "Submitting…" : "Submit review"}
-                    </button>
-                  </form>
+                  <p className="text-sm text-[#565959]">No reviews yet. Be the first!</p>
                 )}
               </div>
             </div>
@@ -559,6 +551,7 @@ export default function ProductPage() {
                     </span>
                   ) : "Add to Cart"}
                 </button>
+                <ReturnRiskBadge product={product} />
                 <button
                   onClick={handleBuyNow}
                   className="w-full bg-[#FFA41C] hover:bg-[#FF8F00] text-[#0F1111] py-2.5 rounded-full text-sm font-bold"
