@@ -8,6 +8,7 @@ import { OrdersProvider } from "./contexts/OrdersContext.jsx";
 import { WishlistProvider } from "./contexts/WishlistContext.jsx";
 import { SustainabilityProvider } from "./contexts/SustainabilityContext.jsx";
 import { CoPlannerProvider } from "./contexts/CoPlannerContext.jsx";
+import { HistoryProvider } from "./contexts/HistoryContext.jsx";
 import CoPlannerPicker from "./components/CoPlannerPicker.jsx";
 import "./index.css";
 
@@ -19,8 +20,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <WishlistProvider>
             <SustainabilityProvider>
               <CoPlannerProvider>
-                <App />
-                <CoPlannerPicker />
+                <HistoryProvider>
+                  <App />
+                  <CoPlannerPicker />
+                </HistoryProvider>
               </CoPlannerProvider>
             </SustainabilityProvider>
           </WishlistProvider>

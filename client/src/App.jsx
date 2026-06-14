@@ -22,6 +22,7 @@ import BundleDetailPage from "./pages/BundleDetailPage.jsx";
 import WitnessPortal from "./pages/WitnessPortal.jsx";
 import { WitnessProvider } from "./contexts/WitnessContext.jsx";
 import WitnessToast from "./components/WitnessToast.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
 
 export default function App() {
   return (
@@ -56,7 +57,7 @@ export default function App() {
         <Route path="/amazon-pay" element={<StubPage />} />
         <Route path="/minitv" element={<StubPage />} />
         <Route path="/witness" element={<WitnessPortal />} />
-        <Route path="/history" element={<StubPage />} />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

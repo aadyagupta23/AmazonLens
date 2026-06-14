@@ -4,6 +4,7 @@ import axios from "axios";
 import { API, formatPrice } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useWishlist } from "../contexts/WishlistContext.jsx";
+import { useHistory } from "../contexts/HistoryContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { getSustainabilityData } from "../utils/sustainability.js";
@@ -25,6 +26,7 @@ export default function ProductPage() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { toggle: toggleWishlist, isInWishlist } = useWishlist();
+  const { addToHistory } = useHistory();
   const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
 
@@ -83,6 +85,7 @@ export default function ProductPage() {
       .then(({ data }) => {
         setProduct(data.product);
         setSelectedImage(0);
+        addToHistory(data.product);
 
         const pid = data.product.id;
         const savedReturns = JSON.parse(localStorage.getItem(`returns_${pid}`) || "[]");

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useSustainability } from "../contexts/SustainabilityContext.jsx";
 import { Leaf, User, Package, Heart, Clock, ChevronRight, Pencil, Check, X } from "lucide-react";
@@ -8,6 +8,13 @@ export default function AccountPage() {
   const { user, realUser, logout, updateProfile } = useAuth();
   const { prefs, updatePref, toggleMode } = useSustainability();
   const navigate = useNavigate();
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash === "#security") {
+      setTimeout(() => document.getElementById("security")?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }, [hash]);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({ name: user.name, city: user.city || "", phone: user.phone || "" });
 
@@ -87,7 +94,7 @@ export default function AccountPage() {
           { Icon: Package, label: "Your Orders",   sub: "Track, return, or buy again",    href: "/orders"   },
           { Icon: Heart,   label: "Your Wishlist",  sub: "Saved items and wish lists",     href: "/wishlist" },
           { Icon: Clock,   label: "Browsing History", sub: "Recently viewed items",        href: "/history"  },
-          { Icon: User,    label: "Login & Security", sub: "Update password and email",    href: "/account"  },
+          { Icon: User,    label: "Login & Security", sub: "Update password and email",    href: "/account#security"  },
         ].map(({ Icon, label, sub, href }) => (
           <Link
             key={label}
@@ -172,6 +179,42 @@ export default function AccountPage() {
             <Leaf size={13} />
             View your Sustainability Dashboard →
           </button>
+        </div>
+      </div>
+
+      {/* ── LOGIN & SECURITY ── */}
+      <div id="security" className="bg-white border border-[#DDD] rounded p-5 mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <User size={18} className="text-[#565959]" />
+          <h2 className="font-bold text-[#0F1111] text-base">Login & Security</h2>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-3 border-b border-[#F0F0F0]">
+            <div>
+              <p className="text-sm font-medium text-[#0F1111]">Email address</p>
+              <p className="text-xs text-[#565959]">{user.email}</p>
+            </div>
+            <span className="text-xs text-[#007185]">Managed locally</span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-[#F0F0F0]">
+            <div>
+              <p className="text-sm font-medium text-[#0F1111]">Password</p>
+              <p className="text-xs text-[#565959]">Last updated: account creation</p>
+            </div>
+            <Link to="/forgot-password" className="text-xs text-[#007185] hover:underline">Change</Link>
+          </div>
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-sm font-medium text-[#0F1111]">Mobile number</p>
+              <p className="text-xs text-[#565959]">{user.phone || "Not added"}</p>
+            </div>
+            <button
+              onClick={() => { setProfileDraft({ name: user.name, city: user.city || "", phone: user.phone || "" }); setEditingProfile(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              className="text-xs text-[#007185] hover:underline"
+            >
+              {user.phone ? "Edit" : "Add"}
+            </button>
+          </div>
         </div>
       </div>
 
