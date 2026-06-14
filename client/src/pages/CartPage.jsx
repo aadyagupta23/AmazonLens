@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useWishlist } from "../contexts/WishlistContext.jsx";
+import { useOrders } from "../contexts/OrdersContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { formatPrice, API } from "../utils/format.js";
@@ -10,12 +12,13 @@ import ReturnRiskBadge from "../components/ReturnRiskBadge.jsx";
 
 import { getUserSustainabilityScore, getSustainabilityData, getSustainabilityColor } from "../utils/sustainability.js";
 import { Trash2, RefreshCw, ShoppingBag, Clock, Leaf, Users, Eye, EyeOff, ChevronDown, ChevronRight, CheckSquare, Square } from "lucide-react";
-import axios from "axios";
 
 const TABS = ["Cart", "Soon"];
 
 export default function CartPage() {
   const { items, addToCart, removeFromCart, updateQty } = useCart();
+  const { addToWishlist } = useWishlist();
+  const { orders } = useOrders();
   const { plans } = useCoPlanner();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -41,13 +44,49 @@ export default function CartPage() {
   const cartSustainColor = getSustainabilityColor(cartSustainScore);
   const ecoItemCount = items.filter((item) => getSustainabilityData(item.id).score >= 70).length;
 
+  // Compute "Coming Up" reorder candidates from real order history
   useEffect(() => {
-    axios.get(`${API}/api/sense/predictions`)
-      .then(({ data }) => setSenseItems(data.predictions || []))
-      .catch(() => {
-        setSenseItems([{ productId: "p005", productName: "Nescafé Gold Blend 200g", price: 649, trustScore: 88, urgency: "Due today", daysOverdue: 0, thumbnail: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Instant_Coffee_Grains_Inside_Jar.jpeg" }]);
-      });
-  }, []);
+    if (!orders || orders.length === 0) { setSenseItems([]); return; }
+    const productMap = {};
+    for (const order of orders) {
+      for (const item of (order.items || [])) {
+        if (!productMap[item.id]) {
+          productMap[item.id] = { item, dates: [] };
+        }
+        productMap[item.id].dates.push(new Date(order.placedAt));
+      }
+    }
+    const today = new Date();
+    const candidates = [];
+    for (const [pid, { item, dates }] of Object.entries(productMap)) {
+      dates.sort((a, b) => a - b);
+      const lastDate = dates[dates.length - 1];
+      const daysSinceLast = Math.round((today - lastDate) / 86400000);
+      let avgCycleDays = 30;
+      if (dates.length >= 2) {
+        const gaps = [];
+        for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i-1]) / 86400000);
+        avgCycleDays = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+      }
+      const daysOverdue = daysSinceLast - avgCycleDays;
+      const urgency = daysOverdue > 7 ? "Overdue" : daysOverdue > 0 ? "Due now" : daysOverdue > -5 ? "Due soon" : null;
+      if (urgency || dates.length >= 2) {
+        candidates.push({
+          productId: item.id,
+          productName: item.name,
+          price: item.price,
+          trustScore: item.trustScore ?? null,
+          lastOrderDate: lastDate.toISOString().slice(0, 10),
+          avgCycleDays,
+          daysOverdue: Math.max(0, daysOverdue),
+          urgency: urgency || `Every ~${avgCycleDays}d`,
+          thumbnail: item.thumbnail,
+        });
+      }
+    }
+    candidates.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    setSenseItems(candidates.slice(0, 5));
+  }, [orders]);
 
   // Fetch co-plan items that belong to current user
   useEffect(() => {
@@ -246,7 +285,10 @@ export default function CartPage() {
                           <span className="text-gray-300">|</span>
                           <button onClick={() => removeFromCart(item.id)} className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Delete</button>
                           <span className="text-gray-300">|</span>
-                          <button className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Save for later</button>
+                          <button
+                            className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline"
+                            onClick={() => { addToWishlist(item); removeFromCart(item.id); }}
+                          >Save for later</button>
                         </div>
                       </div>
                       <div className="text-sm font-bold text-[#0F1111] flex-shrink-0">{formatPrice(item.price * item.qty)}</div>

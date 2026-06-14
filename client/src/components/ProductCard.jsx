@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
+import { useSense } from "../contexts/SenseContext.jsx";
 import { formatPrice } from "../utils/format.js";
 import StarRating from "./StarRating.jsx";
 import { Heart, Leaf, Users, Check, Plus, Minus } from "lucide-react";
@@ -10,13 +11,13 @@ import { Heart, Leaf, Users, Check, Plus, Minus } from "lucide-react";
 // Map companyStatus → badge colours
 const STATUS_BADGE = {
   VERIFIED: "bg-[#067D62] text-white",
+  TRUSTED:  "bg-[#0284c7] text-white",
   MIXED:    "bg-[#FF9900] text-[#0F1111]",
-  FLAGGED:  "bg-[#CC0C39] text-white",
 };
 const STATUS_LABEL = {
   VERIFIED: "Verified",
+  TRUSTED:  "Trusted",
   MIXED:    "Mixed",
-  FLAGGED:  "Flagged",
 };
 
 export default function ProductCard({ product, greenerChoice = false }) {
@@ -24,6 +25,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const { items, addToCart, updateQty, removeFromCart } = useCart();
   const { toggle, isInWishlist } = useWishlist();
   const { startAddToPlan, plans, lastAddedProductId } = useCoPlanner();
+  const { profile } = useSense();
   const wishlisted = isInWishlist(product.id);
   const [justAdded, setJustAdded] = useState(false);
 
@@ -31,8 +33,64 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const cartItem = items.find((i) => i.id === product.id);
   const inCart = !!cartItem;
 
-  const score = product.companyScore ?? product.trustScore ?? 70;
-  const status = product.companyStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
+  // Client-side Amazon Sense match score (lightweight — no API call)
+  const senseMatchScore = (() => {
+    if (!profile?.mature) return 0;
+    let score = 50;
+    const brandKey = (product.brand || "").toLowerCase();
+    const catKey = (product.category || "").toLowerCase();
+
+    // Brand affinity
+    const brandEntry = (profile.preferredBrands || []).find((b) => b.brand.toLowerCase() === brandKey);
+    if (brandEntry) {
+      const maxScore = profile.preferredBrands[0]?.score || 1;
+      score += Math.round((brandEntry.score / maxScore) * 25);
+    }
+    if ((profile.returnedBrands || []).includes(product.brand)) score -= 20;
+
+    // Category affinity
+    const catEntry = (profile.preferredCategories || []).find(
+      (c) => catKey.includes(c.category.toLowerCase()) || c.category.toLowerCase().includes(catKey)
+    );
+    if (catEntry) {
+      const maxScore = profile.preferredCategories[0]?.score || 1;
+      score += Math.round((catEntry.score / maxScore) * 20);
+    }
+
+    // Budget fit
+    if (product.price && profile.budgetRange?.avg > 0) {
+      const ratio = product.price / profile.budgetRange.avg;
+      if (ratio >= 0.5 && ratio <= 1.5) score += 15;
+      else if (ratio > 2.5) score -= 10;
+    }
+
+    // Rating boost
+    if (product.rating >= 4.3) score += 10;
+
+    return Math.max(0, Math.min(100, score));
+  })();
+
+  const score = product.companyScore ?? product.productScore ?? product.trustScore ?? 70;
+
+  // Dampen Sense match when TrustLens score is low
+  const senseScore = (() => {
+    if (score >= 75) return senseMatchScore;
+    if (senseMatchScore < 80) return senseMatchScore;
+
+    // TrustLens below 40: kill any recommendation entirely
+    if (score < 40) return 0;
+
+    // TrustLens 40-74: force Pick Me (95+) down into Recommended (80-94) range
+    if (senseMatchScore >= 95) {
+      const trustRatio = (score - 40) / 35; // 0..1 (40→0, 74→0.97)
+      return Math.round(80 + trustRatio * 14); // 80..94
+    }
+
+    // Already in Recommended range (80-94) — keep as-is
+    return senseMatchScore;
+  })();
+
+  const status = product.companyStatus ?? product.productStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
   const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.MIXED;
   const badgeLabel = STATUS_LABEL[status] ?? status;
 
@@ -70,13 +128,6 @@ export default function ProductCard({ product, greenerChoice = false }) {
         <div className={`absolute top-2 right-2 ${badgeCls} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
           {score} · {badgeLabel}
         </div>
-
-        {/* Prime badge */}
-        {product.isPrime && (
-          <div className="absolute top-2 left-2 bg-[#00A8E1] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-            prime
-          </div>
-        )}
 
         {/* Wishlist heart */}
         <button
@@ -125,6 +176,18 @@ export default function ProductCard({ product, greenerChoice = false }) {
             <div className="text-xs text-[#007600] mt-1">{product.delivery}</div>
           )}
         </div>
+
+        {/* Amazon Sense recommendation — subtle inline label */}
+        {senseScore >= 95 && (
+          <div className="mt-1.5 text-[11px] text-[#725B13] font-medium">
+            👑 Pick Me
+          </div>
+        )}
+        {senseScore >= 80 && senseScore < 95 && (
+          <div className="mt-1.5 text-[11px] text-[#565959] font-medium">
+            ✨ Recommended
+          </div>
+        )}
 
         {/* Cart button / quantity counter */}
         {justAdded ? (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext.jsx';
 import {
   Search,
@@ -508,8 +508,8 @@ function ClosestAlternativeCard({ alternative, budget }) {
 function ProductCard({ product }) {
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
   return (
-    <a
-      href={`/dp/${product.id}`}
+    <Link
+      to={`/dp/${product.id}`}
       className="group flex flex-col p-4 bg-white rounded-xl border border-gray-100 hover:border-[#ff9900] hover:shadow-md transition-all duration-200"
     >
       <div className="w-full h-40 mb-3 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center">
@@ -541,7 +541,7 @@ function ProductCard({ product }) {
           </span>
         )}
       </div>
-    </a>
+    </Link>
   );
 }
 

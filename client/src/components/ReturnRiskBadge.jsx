@@ -9,7 +9,7 @@
 
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, ShieldAlert, Info, ChevronDown, ChevronUp } from "lucide-react";
-import { useDna } from "../contexts/DnaContext.jsx";
+import { useSense } from "../contexts/SenseContext.jsx";
 
 const SEVERITY_CONFIG = {
   high:   { icon: ShieldAlert, bg: "bg-red-50",    border: "border-red-300",   text: "text-red-800",   label: "text-red-700"   },
@@ -19,19 +19,19 @@ const SEVERITY_CONFIG = {
 };
 
 export default function ReturnRiskBadge({ product }) {
-  const { getProductRisk, dnaReady } = useDna();
+  const { getProductRisk, senseReady } = useSense();
   const [risk, setRisk] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!dnaReady || !product?.id) return;
+    if (!senseReady || !product?.id) return;
     setLoading(true);
     getProductRisk(product)
       .then((data) => setRisk(data))
       .catch(() => setRisk(null))
       .finally(() => setLoading(false));
-  }, [product?.id, dnaReady]);
+  }, [product?.id, senseReady]);
 
   // Show nothing while loading or if there's no risk
   if (loading || !risk || risk.riskScore === 0 || risk.warnings.length === 0) return null;
@@ -49,7 +49,7 @@ export default function ReturnRiskBadge({ product }) {
           <Icon size={16} className={`${cfg.label} flex-shrink-0 mt-0.5`} />
           <div>
             <span className={`text-sm font-semibold ${cfg.text}`}>
-              DNA Warning · {risk.riskLabel}
+              Amazon Sense Warning · {risk.riskLabel}
             </span>
             <p className={`text-xs mt-0.5 ${cfg.text} opacity-90`}>{topWarning.message}</p>
           </div>
@@ -88,7 +88,7 @@ export default function ReturnRiskBadge({ product }) {
 
       {/* Footer */}
       <p className="text-[10px] text-gray-400 mt-2 pl-6">
-        Powered by Amazon Lens DNA · Based on your personal shopping history
+        Powered by Amazon Sense™ · Based on your personal shopping history
       </p>
     </div>
   );

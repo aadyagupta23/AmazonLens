@@ -16,7 +16,7 @@ const METRICS = [
  * Props:
  *   data – result of getSustainabilityData(productId)
  */
-export default function SustainabilityPanel({ data }) {
+export default function SustainabilityPanel({ data, ecoLabel }) {
   const [expanded, setExpanded] = useState(false);
   const c = getSustainabilityColor(data.score);
 
@@ -27,7 +27,10 @@ export default function SustainabilityPanel({ data }) {
         <div className="flex items-center gap-2">
           <Leaf size={15} className="text-[#1B5E20]" />
           <span className="font-bold text-[#0F1111] text-sm">Sustainability</span>
-          {data.certified && (
+          {ecoLabel && (
+            <span className="text-[10px] bg-[#1B5E20] text-white px-2 py-0.5 rounded-full font-bold">{ecoLabel.toUpperCase()}</span>
+          )}
+          {!ecoLabel && data.certified && (
             <span className="text-[10px] bg-[#1B5E20] text-white px-2 py-0.5 rounded-full font-bold">CERTIFIED</span>
           )}
         </div>

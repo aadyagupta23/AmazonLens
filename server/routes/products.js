@@ -3,7 +3,7 @@ import Groq from "groq-sdk";
 import { products, bundles } from "../data/mockData.js";
 import { generateReviews } from "../data/reviewGenerator.js";
 import { computeProductScore } from "../utils/trustFormula.js";
-import { getProductReviews, getProductStats } from "../data/customers.js";
+import { getProductReviews, getProductStats, computeProductTrustScore } from "../data/customers.js";
 
 const router = Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -311,10 +311,12 @@ async function getAllProducts() {
   // Score every product independently using its own return/reorder rates.
   // DummyJSON/book products with no customer data use getProductStats defaults (10% return, 20% reorder).
   allProductsCache = base.map((product) => {
-    const stats  = getProductStats(product.id);
-    const realRg = stats.returnRate;
-    const realRi = Math.min(1, stats.reorderRate / 0.45);
-    const { productScore, status: productStatus } = computeProductScore(product, 0, { Rg: realRg, Ri: realRi });
+    // Use the same TrustLens formula as TrustPanel so listing and product page show identical scores
+    const trust = computeProductTrustScore(product.id);
+    const productScore = trust.insufficient
+      ? (() => { const s = getProductStats(product.id); const { productScore: ps } = computeProductScore(product, 0, { Rg: s.returnRate, Ri: Math.min(1, s.reorderRate / 0.45), avgRating: s.avgRating }); return ps; })()
+      : Math.round(trust.componentScores.returnScore + trust.componentScores.reorderScore + trust.componentScores.reviewScore);
+    const productStatus = productScore >= 75 ? "VERIFIED" : "TRUSTED";
     const { total: dbReviewCount } = getProductReviews(product.id, 1, 1);
     return { ...product, productScore, productStatus, reviewCount: dbReviewCount || product.reviewCount };
   });

@@ -260,7 +260,10 @@ export default function OrdersPage() {
           </div>
           <div className="bg-[#F7F8F8] rounded p-4">
             <div className="text-3xl font-bold">
-              {orderItems.length ? Math.round(orderItems.reduce((s, i) => s + (i.trustScore ?? 70), 0) / orderItems.length) : 0}
+              {(() => {
+                const scored = orderItems.filter(i => i.trustScore != null);
+                return scored.length ? Math.round(scored.reduce((s, i) => s + i.trustScore, 0) / scored.length) : "—";
+              })()}
             </div>
             <div className="text-sm text-[#565959]">Avg Trust Score</div>
           </div>
@@ -305,8 +308,8 @@ export default function OrdersPage() {
 
       <div className="space-y-5">
         {orderItems.map((item, idx) => {
-          const trustScore = item.trustScore ?? 70;
-          const sustainability = item.sustainability ?? Math.round(60 + trustScore * 0.3);
+          const trustScore = item.trustScore ?? null;
+          const sustainability = item.sustainability ?? null;
           const key = `${item.orderId}-${item.id}-${idx}`;
 
           return (
@@ -341,26 +344,32 @@ export default function OrdersPage() {
                   )}
 
                   <div className="flex flex-wrap gap-2 mb-4">
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                      TrustLens {trustScore}
-                    </span>
-                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
-                      Sustainability {sustainability}
-                    </span>
+                    {trustScore != null && (
+                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
+                        TrustLens {trustScore}
+                      </span>
+                    )}
+                    {sustainability != null && (
+                      <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+                        Sustainability {sustainability}
+                      </span>
+                    )}
                     <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">
                       {formatPrice(item.price * item.qty)} paid
                     </span>
                   </div>
 
                   <div className="grid md:grid-cols-3 gap-3">
-                    <div className="bg-[#F7F8F8] rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Package size={14} />
-                        <span className="font-semibold text-sm">TrustLens Score</span>
+                    {trustScore != null && (
+                      <div className="bg-[#F7F8F8] rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Package size={14} />
+                          <span className="font-semibold text-sm">TrustLens Score</span>
+                        </div>
+                        <div className="text-xl font-bold">{trustScore}/100</div>
+                        <p className="text-xs text-[#565959] mt-0.5">Verified buyer confidence</p>
                       </div>
-                      <div className="text-xl font-bold">{trustScore}/100</div>
-                      <p className="text-xs text-[#565959] mt-0.5">Verified buyer confidence</p>
-                    </div>
+                    )}
                     <div className="bg-[#F7F8F8] rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <TrendingDown size={14} />
@@ -373,14 +382,16 @@ export default function OrdersPage() {
                         </p>
                       )}
                     </div>
-                    <div className="bg-[#F7F8F8] rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Leaf size={14} />
-                        <span className="font-semibold text-sm">Sustainability</span>
+                    {sustainability != null && (
+                      <div className="bg-[#F7F8F8] rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Leaf size={14} />
+                          <span className="font-semibold text-sm">Sustainability</span>
+                        </div>
+                        <div className="text-xl font-bold">{sustainability}/100</div>
+                        <p className="text-xs text-[#565959] mt-0.5">vs similar products</p>
                       </div>
-                      <div className="text-xl font-bold">{sustainability}/100</div>
-                      <p className="text-xs text-[#565959] mt-0.5">vs similar products</p>
-                    </div>
+                    )}
                   </div>
 
                   {/* Action buttons */}
@@ -417,7 +428,7 @@ export default function OrdersPage() {
                     </button>
                     {!item.returnStatus && (
                       <button
-                        onClick={() => returnItem(item.orderId, item.id)}
+                        onClick={() => returnItem(item.orderId, item.id, user?.email)}
                         className="flex items-center gap-1.5 border border-[#DDD] hover:bg-[#FFF8F0] hover:border-orange-300 hover:text-orange-700 text-[#565959] px-5 py-2 rounded text-sm font-semibold transition-colors"
                       >
                         <RotateCcw size={13} /> Return
