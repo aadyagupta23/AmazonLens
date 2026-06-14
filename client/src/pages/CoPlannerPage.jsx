@@ -651,9 +651,8 @@ export default function CoPlannerPage() {
             setPlan(d.plan);
             trackPlan(d.plan);
             window.history.replaceState(null, "", `/co-planner?id=${d.plan.id}`);
+            loadAiSuggestions(d.plan.id);
           } else if (d.error) {
-            // Already a member or expired — try to load the plan directly from the invite's planId
-            // Fall back to dashboard
             console.warn("Join failed:", d.error);
             window.history.replaceState(null, "", `/co-planner`);
           }

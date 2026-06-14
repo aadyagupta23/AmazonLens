@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { formatPrice } from "../utils/format.js";
 import StarRating from "./StarRating.jsx";
-import { Heart, Leaf, Users } from "lucide-react";
+import { Heart, Leaf, Users, Check, Plus, Minus } from "lucide-react";
 
 // Map companyStatus → badge colours
 const STATUS_BADGE = {
@@ -20,16 +20,38 @@ const STATUS_LABEL = {
 };
 
 export default function ProductCard({ product, greenerChoice = false }) {
-  const navigate  = useNavigate();
-  const { addToCart }       = useCart();
+  const navigate = useNavigate();
+  const { items, addToCart, updateQty, removeFromCart } = useCart();
   const { toggle, isInWishlist } = useWishlist();
-  const { startAddToPlan, plans } = useCoPlanner();
+  const { startAddToPlan, plans, activePlan } = useCoPlanner();
   const wishlisted = isInWishlist(product.id);
+  const [justAdded, setJustAdded] = useState(false);
 
-  const score  = product.productScore  ?? product.trustScore  ?? 70;
-  const status = product.productStatus ?? (score >= 75 ? "VERIFIED" : "TRUSTED");
+  // Check if product is already in cart
+  const cartItem = items.find((i) => i.id === product.id);
+  const inCart = !!cartItem;
+
+  const score = product.companyScore ?? product.trustScore ?? 70;
+  const status = product.companyStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
   const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.MIXED;
   const badgeLabel = STATUS_LABEL[status] ?? status;
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
+    addToCart(product);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1500);
+  };
+
+  const handleAddToPlan = (e) => {
+    e.stopPropagation();
+    // Check if item already exists in any tracked plan
+    if (activePlan && activePlan.items?.some((i) => i.productId === product.id)) {
+      alert("This item is already in your Co-Plan!");
+      return;
+    }
+    startAddToPlan(product);
+  };
 
   return (
     <div
@@ -49,7 +71,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
           }}
         />
 
-        {/* TrustLens badge — computed company score */}
+        {/* TrustLens badge */}
         <div className={`absolute top-2 right-2 ${badgeCls} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
           {score} · {badgeLabel}
         </div>
@@ -109,18 +131,39 @@ export default function ProductCard({ product, greenerChoice = false }) {
           )}
         </div>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-          className="mt-2 w-full btn-orange text-sm py-1.5 rounded-full"
-        >
-          Add to Cart
-        </button>
+        {/* Cart button / quantity counter */}
+        {justAdded ? (
+          <div className="mt-2 w-full flex items-center justify-center gap-1 text-sm py-1.5 rounded-full bg-[#067D62] text-white font-medium">
+            <Check size={14} /> Added to Cart
+          </div>
+        ) : inCart ? (
+          <div className="mt-2 w-full flex items-center justify-center gap-0 rounded-full border border-gray-300 overflow-hidden">
+            <button
+              onClick={(e) => { e.stopPropagation(); updateQty(product.id, cartItem.qty - 1); }}
+              className="px-3 py-1.5 text-sm hover:bg-gray-100 transition-colors"
+            >
+              <Minus size={14} />
+            </button>
+            <span className="px-3 py-1.5 text-sm font-bold text-[#0F1111] min-w-[32px] text-center">{cartItem.qty}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); updateQty(product.id, cartItem.qty + 1); }}
+              className="px-3 py-1.5 text-sm hover:bg-gray-100 transition-colors"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleAddToCart}
+            className="mt-2 w-full btn-orange text-sm py-1.5 rounded-full"
+          >
+            Add to Cart
+          </button>
+        )}
+
         {plans.length > 0 && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              startAddToPlan(product);
-            }}
+            onClick={handleAddToPlan}
             className="mt-1.5 w-full flex items-center justify-center gap-1 text-xs py-1.5 rounded-full border border-gray-300 text-[#0F1111] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
           >
             <Users size={12} /> Add to Co-Plan

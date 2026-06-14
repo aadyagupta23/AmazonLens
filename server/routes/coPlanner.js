@@ -286,7 +286,8 @@ router.post("/join/:token", (req, res) => {
   const name = memberName?.trim() || "Guest";
 
   if (plan.members.some((m) => m.name === name)) {
-    return res.status(409).json({ error: "You're already in this plan" });
+    // Already a member — just return the plan so they can view it
+    return res.json({ plan: enrichPlan(plan), alreadyMember: true });
   }
 
   const colors = ["#007185", "#CC0C39", "#1B5E20", "#6366f1", "#db2777", "#0891b2", "#7c3aed"];
