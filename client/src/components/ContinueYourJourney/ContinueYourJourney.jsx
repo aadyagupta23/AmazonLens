@@ -51,13 +51,6 @@ export default function ContinueYourJourney() {
       return;
     }
 
-    // Invalidate stale cache — regenerate every time from latest order
-    const cacheKey = freshOrders[0]?.id || "";
-    const prevCacheKey = localStorage.getItem("amz_ai_bundles_key") || "";
-    if (cacheKey !== prevCacheKey) {
-      localStorage.removeItem("amz_ai_bundles");
-    }
-
     setLoading(true);
     fetch(`${API}/api/bundles/ai`, {
       method: "POST",
@@ -71,26 +64,9 @@ export default function ContinueYourJourney() {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.bundles?.length > 0) {
-          setBundles(data.bundles);
-          localStorage.setItem("amz_ai_bundles", JSON.stringify(data.bundles));
-          localStorage.setItem("amz_ai_bundles_key", cacheKey);
-        } else {
-          setBundles([]);
-          localStorage.removeItem("amz_ai_bundles");
-          localStorage.removeItem("amz_ai_bundles_key");
-        }
+        setBundles(data.bundles?.length > 0 ? data.bundles : []);
       })
-      .catch(() => {
-        // On API failure, try cached bundles only if they match the current latest order
-        if (cacheKey === prevCacheKey) {
-          try {
-            const cached = JSON.parse(localStorage.getItem("amz_ai_bundles") || "[]");
-            if (cached.length > 0) { setBundles(cached); return; }
-          } catch (_) {}
-        }
-        setBundles([]);
-      })
+      .catch(() => setBundles([]))
       .finally(() => setLoading(false));
   }, [orders.length]);
 

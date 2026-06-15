@@ -1,49 +1,8 @@
 import { Router } from "express";
 import { groqCall, FAST_MODEL } from "../utils/groqClient.js";
+import { getAllProducts } from "./products.js";
 
 const router = Router();
-
-// Full catalog for the AI prompt
-const CATALOG = [
-  { id: "p001", name: 'Sony Bravia 55" 4K Smart TV', category: "tv" },
-  { id: "p002", name: "JBL Cinema SB271 2.1 Soundbar", category: "audio" },
-  { id: "p003", name: "Apple iPhone 15 128GB", category: "phone" },
-  { id: "p004", name: "boAt Airdopes 141 TWS Earbuds", category: "audio" },
-  { id: "p005", name: "Nescafé Gold Blend Coffee 200g", category: "grocery" },
-  { id: "p006", name: 'Samsung 43" Crystal 4K Smart TV', category: "tv" },
-  { id: "p007", name: "Prestige Hard Anodised Pressure Cooker 5L", category: "kitchen" },
-  { id: "p008", name: "Fire TV Stick 4K Max (2023)", category: "streaming" },
-  { id: "p009", name: "EcoSmile Bamboo Toothbrush Pack of 4", category: "personal care" },
-  { id: "p010", name: "Milton Thermosteel Water Bottle 1L", category: "personal care" },
-  { id: "p011", name: "Classmate Recycled Paper Notebook Pack 6-pack", category: "stationery" },
-  { id: "p012", name: "Bewakoof Organic Cotton T-Shirt", category: "fashion" },
-  { id: "p013", name: "Amazon Basics Reusable Grocery Bag Set 5-pack", category: "home" },
-  { id: "p014", name: "Wipro Next 12W LED Smart Bulb", category: "smart home" },
-  { id: "p015", name: "Ambrane Solar Power Bank 20000mAh", category: "accessories" },
-  { id: "p016", name: "Gala Eco Cleaning Kit", category: "home" },
-  { id: "p017", name: "GreenSoul Ergonomic High-Back Study Chair", category: "furniture" },
-  { id: "p018", name: "Portronics Adjustable Aluminium Laptop Stand", category: "office" },
-  { id: "p019", name: "Philips LED Study Lamp with Dimming", category: "office" },
-  { id: "p020", name: "Amazon Basics Desk Cable Management Sleeve Kit", category: "office" },
-  { id: "p021", name: "Redragon K551 Mechanical Gaming Keyboard", category: "gaming" },
-  { id: "p022", name: "Logitech M235 Wireless Mouse", category: "office" },
-  { id: "p023", name: 'LG 24" Full HD IPS Monitor', category: "monitor" },
-  { id: "p024", name: "Logitech C270 HD Webcam", category: "office" },
-  { id: "p025", name: "Anker 7-in-1 USB-C Hub", category: "accessories" },
-  { id: "p026", name: "JBL Tune 760NC Noise Cancelling Headphones", category: "audio" },
-  { id: "p027", name: "Cosmic Byte XL Desk Mat", category: "gaming" },
-  { id: "p028", name: "Philips Digital Air Fryer 4L", category: "kitchen" },
-  { id: "p029", name: "Prestige Electric Kettle 1.5L", category: "kitchen" },
-  { id: "p030", name: "Pigeon 1800W Induction Cooktop", category: "kitchen" },
-  { id: "p031", name: "Cello Plastic Laundry Basket with Lid", category: "home" },
-  { id: "p032", name: "Solimo Modular Storage Organizer Drawers", category: "home" },
-  { id: "p033", name: "Wipro Garnet LED Dimmable Bedside Lamp", category: "home" },
-  { id: "p034", name: "Razer DeathAdder Essential Gaming Mouse", category: "gaming" },
-  { id: "p035", name: "Corsair K55 RGB PRO Gaming Keyboard", category: "gaming" },
-  { id: "p036", name: 'Samsung 27" Odyssey G3 Gaming Monitor 144Hz', category: "gaming" },
-  { id: "p037", name: "Amazon Echo Dot (5th Gen)", category: "smart home" },
-  { id: "p038", name: "Wipro 16A Smart Plug", category: "smart home" },
-];
 
 
 // GET /api/bundles — static curated bundles from mockData
@@ -65,22 +24,78 @@ router.post("/ai", async (req, res) => {
     return res.status(400).json({ message: "No recent order provided" });
   }
 
-  // Import prices from mockData for richer AI context
-  let productPrices = {};
-  try {
-    const { products } = await import("../data/mockData.js");
-    products.forEach((p) => { productPrices[p.id] = p.price; });
-  } catch (_) {}
+  // Build live catalog from full product database (mockData + djProducts)
+  const allProducts = await getAllProducts();
+  const productById = {};
+  allProducts.forEach((p) => { productById[p.id] = p; });
+
+  // Resolve recent order categories from DB (fallback to what client sent)
+  const recentCatTerms = recentOrder
+    .map((i) => (productById[i.id]?.category || i.category || "").toLowerCase())
+    .filter(Boolean);
+
+  // Keywords that each category group maps to in the catalog
+  const COMPLEMENT_HINTS = [
+    { if: ["audio", "headphone", "speaker", "earphone", "soundbar", "home audio"], suggest: ["mobile", "streaming", "computer", "accessory", "office"] },
+    { if: ["mobile", "phone"], suggest: ["audio", "headphone", "earphone", "accessory", "computer"] },
+    { if: ["tv", "television"], suggest: ["audio", "speaker", "soundbar", "streaming", "smart home"] },
+    { if: ["streaming"], suggest: ["tv", "television", "audio", "smart home"] },
+    { if: ["kitchen", "cookware", "cooking", "appliance"], suggest: ["kitchen", "cookware", "grocery", "home & kitchen"] },
+    { if: ["grocery", "coffee", "food"], suggest: ["kitchen", "cookware", "home & kitchen"] },
+    { if: ["gaming"], suggest: ["gaming", "computer", "monitor", "input", "accessory"] },
+    { if: ["computer", "laptop", "office", "monitor"], suggest: ["computer", "office", "monitor", "accessory", "furniture"] },
+    { if: ["smart home"], suggest: ["smart home", "accessory", "electronics"] },
+    { if: ["beauty", "personal care", "cosmetic"], suggest: ["beauty", "personal care", "fashion", "home"] },
+    { if: ["fashion", "clothing", "apparel"], suggest: ["fashion", "beauty", "sports"] },
+    { if: ["sports", "fitness"], suggest: ["sports", "fitness", "fashion"] },
+    { if: ["book"], suggest: ["books", "office", "stationery"] },
+  ];
+
+  const norm = (s) => (s || "").toLowerCase();
+
+  // Score each product: 3 = same category as purchase, 2 = complement, 1 = tangential, 0 = unrelated
+  const scoreProduct = (p) => {
+    const pCat = norm(p.category);
+    for (const term of recentCatTerms) {
+      if (pCat.includes(term) || term.includes(pCat)) return 3;
+    }
+    for (const hint of COMPLEMENT_HINTS) {
+      const isRecent = hint.if.some((kw) => recentCatTerms.some((t) => t.includes(kw) || kw.includes(t)));
+      if (!isRecent) continue;
+      if (hint.suggest.some((kw) => pCat.includes(kw) || kw.includes(pCat))) return 2;
+    }
+    return 0;
+  };
+
+  const scored = allProducts
+    .map((p) => ({ p, score: scoreProduct(p) }))
+    .sort((a, b) => b.score - a.score);
+
+  // Only pass relevant products to the AI — NO unrelated filler
+  // score 3 = same category, score 2 = direct complement
+  const relevantProducts = scored.filter((x) => x.score >= 2).map((x) => x.p);
+  // If very few relevant products, add same-category products from the purchase itself
+  const CATALOG = relevantProducts.length >= 4
+    ? relevantProducts.slice(0, 50)
+    : scored.filter((x) => x.score >= 1).slice(0, 20).map((x) => x.p);
+
+  // Compute complement category labels for AI prompt
+  const complementLabels = [];
+  for (const hint of COMPLEMENT_HINTS) {
+    const isRecent = hint.if.some((kw) => recentCatTerms.some((t) => t.includes(kw) || kw.includes(t)));
+    if (isRecent) complementLabels.push(...hint.suggest);
+  }
+  const complementDesc = [...new Set(complementLabels)].join(", ") || "accessories that pair with the purchased product";
 
   const catalogText = CATALOG.map((p) => {
-    const price = productPrices[p.id] ? ` ₹${productPrices[p.id].toLocaleString("en-IN")}` : "";
-    return `${p.id}: ${p.name} [${p.category}]${price}`;
+    const price = p.price ? ` ₹${p.price.toLocaleString("en-IN")}` : "";
+    return `${p.id}: ${p.name} [${p.category || "general"}]${price}`;
   }).join("\n");
 
   const resolveItem = (item) => {
-    const c = CATALOG.find((c) => c.id === item.id);
-    const name = c?.name || item.name;
-    const cat = c?.category || item.category || "";
+    const p = productById[item.id];
+    const name = p?.name || item.name;
+    const cat = p?.category || item.category || "";
     return `- ${name}${cat ? ` [${cat}]` : ""}`;
   };
 
@@ -97,24 +112,36 @@ router.post("/ai", async (req, res) => {
   const prompt = `You are a smart personal shopping assistant for an Indian e-commerce platform.
 Your job is to suggest product bundles that DIRECTLY complement what the user just bought.
 
-━━━ MOST RECENT ORDER (highest priority — build recommendations around this) ━━━
+━━━ MOST RECENT ORDER (build ALL recommendations around this ONLY) ━━━
 ${recentText}
 
 ━━━ PREVIOUSLY PURCHASED (exclude from suggestions) ━━━
 ${olderText}
 ${historyText ? `\n━━━ RECENTLY BROWSED ━━━\n${historyText}` : ""}
 
-━━━ FULL CATALOG (ID: Name [category] Price) ━━━
+━━━ ELIGIBLE CATALOG — ONLY pick IDs from this list ━━━
 ${catalogText}
 
-━━━ CATEGORY COMPLEMENT RULES (follow these strictly) ━━━
-grocery / food (coffee, tea, snacks)  → kitchen appliances: kettle, cooker, induction cooktop, air fryer
-kitchen appliances                    → other kitchen appliances + personal care (bottles, containers)
-tv / streaming                        → audio (soundbar, headphones) + streaming devices
-phone                                 → audio accessories (earbuds, headphones) + power bank + USB hub
-gaming                                → gaming peripherals: keyboard, mouse, monitor, desk mat
-office / laptop / monitor             → desk accessories: stand, lamp, webcam, mouse, cable management, USB hub
-smart home                            → more smart home: smart bulb, smart plug, Echo Dot
+━━━ STRICT RULES ━━━
+1. The catalog above contains ONLY products relevant to what the user bought. Pick ONLY from it.
+2. The correct complement categories for this purchase are: ${complementDesc}
+3. NEVER suggest products from unrelated categories (e.g. if user bought a phone, do NOT suggest kitchen, grocery, fashion, books, or furniture).
+4. Every item in the bundle must have a clear, logical connection to the purchased product.
+5. "reason" must name the exact product they bought and explain the direct connection in one sentence.
+
+━━━ CATEGORY COMPLEMENT RULES ━━━
+phone / mobile → earbuds, headphones, power bank, USB hub, phone accessories
+audio (speaker, soundbar, headphones) → phone, streaming device, laptop stand, office accessories
+tv / television → soundbar, streaming stick, smart bulb, HDMI accessories
+streaming device → TV, smart home, audio
+kitchen / cookware → other kitchen appliances, food storage
+grocery / coffee / food → kettle, induction cooktop, air fryer, kitchen appliances
+gaming → gaming keyboard, gaming mouse, gaming monitor, desk mat
+office / laptop / monitor → webcam, mouse, laptop stand, USB hub, cable management
+smart home → smart bulb, smart plug, Echo Dot
+beauty / personal care → other beauty, skincare, fashion
+sports / fitness → sports gear, fitness accessories
+fashion → other fashion, beauty, sports
 audio (headphones, earbuds)           → phone, streaming, or office accessories
 furniture (chair, desk)               → office or study accessories
 personal care                         → other personal care or home items
@@ -192,7 +219,7 @@ Return ONLY valid JSON, no markdown, no extra text:
 
     const parsed = JSON.parse(text);
 
-    const validIds = new Set(CATALOG.map((p) => p.id));
+    const validIds = new Set(allProducts.map((p) => p.id));
 
     parsed.bundles = (parsed.bundles || [])
       .map((bundle) => ({
