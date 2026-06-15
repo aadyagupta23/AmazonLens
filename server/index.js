@@ -12,7 +12,6 @@ import senseRoutes from "./routes/sense.js";
 import authRoutes from "./routes/auth.js";
 import dnaRoutes from "./routes/dna.js";
 import smartSearch from "./routes/smartSearch.js";
-import priceDropRoutes from "./routes/priceDrop.js";
 import { default as coPlannerRoutes, setIO as setCoPlannerIO } from "./routes/coPlanner.js";
 import customerRoutes from "./routes/customers.js";
 import companyRoutes from "./routes/companies.js";

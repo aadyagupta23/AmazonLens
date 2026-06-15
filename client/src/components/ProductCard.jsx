@@ -171,7 +171,12 @@ export default function ProductCard({ product, greenerChoice = false }) {
             </div>
           )}
           {product.delivery && (
-            <div className="text-xs text-[#007600] mt-1">{product.delivery}</div>
+            <div className="text-xs text-[#007600] mt-1 flex items-center gap-1.5">
+              {product.delivery}
+              {/today|tomorrow/i.test(product.delivery) && (
+                <span className="text-[10px] font-bold text-[#00A8E1]">prime</span>
+              )}
+            </div>
           )}
         </div>
 
