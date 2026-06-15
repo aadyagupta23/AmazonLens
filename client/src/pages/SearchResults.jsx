@@ -48,7 +48,7 @@ export default function SearchResults() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const categoryParam = searchParams.get("category") || "All";
-  const { prefs } = useSustainability();
+  const { prefs, toggleMode } = useSustainability();
 
   const [rawProducts, setRawProducts] = useState([]);
   const [bundle, setBundle] = useState(null);
@@ -353,9 +353,12 @@ export default function SearchResults() {
               <span className="text-xs text-[#1B5E20] font-medium">
                 Sustainability Mode is on — greener products are ranked higher.
               </span>
-              <Link to="/account" className="ml-auto text-xs text-[#007185] hover:underline flex-shrink-0">
-                Settings
-              </Link>
+              <button
+                onClick={toggleMode}
+                className="ml-auto text-xs font-medium text-[#1B5E20] hover:underline flex-shrink-0"
+              >
+                Turn off
+              </button>
             </div>
           )}
 

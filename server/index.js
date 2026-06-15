@@ -160,7 +160,6 @@ app.use("/api/smart-search", smartSearch);
 app.use("/api/witness", witnessRoutes);
 app.use("/api/sense", senseRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/price-drop", priceDropRoutes);
 app.use("/api/co-planner", coPlannerRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/companies", companyRoutes);

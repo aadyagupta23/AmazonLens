@@ -1,7 +1,7 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { bundles, products } from "../../../server/data/mockData.js";
 import ProductCard from "../components/ProductCard.jsx";
+import { API } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
 import {
   ShoppingCart,
@@ -82,21 +82,34 @@ export default function BundleDetailPage() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
+  const [productMap, setProductMap] = useState({});
+  const [staticBundles, setStaticBundles] = useState([]);
   // Track which add-ons have been added this session (for button feedback)
   const [addedAddons, setAddedAddons] = useState({});
   // Toast state for "Add Entire Setup" confirmation
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  // Check AI bundles from localStorage first, then fall back to static mockData
-  const rawBundle = bundles.find((b) => b.id === bundleId) || (() => {
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/api/bundles`).then((r) => r.json()),
+      fetch(`${API}/api/products`).then((r) => r.json()),
+    ]).then(([bundleData, productData]) => {
+      setStaticBundles(bundleData.bundles || []);
+      const map = {};
+      (productData.products || []).forEach((p) => { map[p.id] = p; });
+      setProductMap(map);
+    }).catch(() => {});
+  }, []);
+
+  // Check AI bundles from localStorage first, then fall back to server data
+  const rawBundle = staticBundles.find((b) => b.id === bundleId) || (() => {
     try {
       const ai = JSON.parse(localStorage.getItem("amz_ai_bundles") || "[]");
       const found = ai.find((b) => b.id === bundleId);
       if (!found) return null;
-      // Normalise AI bundle shape to match static bundle shape
       const resolvedPrices = (found.items || [])
-        .map((i) => products.find((p) => p.id === i.productId))
+        .map((i) => productMap[i.productId])
         .filter(Boolean);
       const total = resolvedPrices.reduce((s, p) => s + p.price, 0);
       return {
@@ -138,14 +151,14 @@ export default function BundleDetailPage() {
     );
   }
 
-  // Resolve products that actually exist in the products array
-  const bundleProducts = bundle.products
-    .map((id) => products.find((p) => p.id === id))
+  // Resolve products that actually exist in the product map
+  const bundleProducts = (bundle.products || [])
+    .map((id) => productMap[id])
     .filter(Boolean);
 
   // Resolve suggested add-ons
   const addonProducts = (bundle.suggestedAddons || [])
-    .map((id) => products.find((p) => p.id === id))
+    .map((id) => productMap[id])
     .filter(Boolean);
 
   const avgTrust =

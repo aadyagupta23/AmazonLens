@@ -361,17 +361,30 @@ export default function Navbar() {
           </Link>
 
           {/* Sustainability Mode indicator */}
-          {prefs.enabled && (
-            <Link
-              to="/sustainability"
-              title="View your Eco Dashboard"
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-[#1B5E20]/80 hover:bg-[#1B5E20] rounded text-xs font-medium text-white flex-shrink-0 transition-colors group"
+          <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={toggleMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-l text-xs font-medium transition-colors ${
+                prefs.enabled
+                  ? "bg-[#1B5E20]/80 hover:bg-[#1B5E20] text-white"
+                  : "bg-white/10 hover:bg-white/20 text-white/60"
+              }`}
             >
               <Leaf size={11} />
-              <span>Eco Mode On</span>
-              <span className="text-white/50 group-hover:text-white/80 transition-colors">· My Dashboard →</span>
+              {prefs.enabled ? "Eco Mode On" : "Eco Mode Off"}
+            </button>
+            <Link
+              to="/sustainability"
+              className={`flex items-center px-2 py-1.5 rounded-r text-xs font-medium transition-colors ${
+                prefs.enabled
+                  ? "bg-[#1B5E20]/80 hover:bg-[#1B5E20] text-white"
+                  : "bg-white/10 hover:bg-white/20 text-white/60"
+              }`}
+              title="View Eco Dashboard"
+            >
+              →
             </Link>
-          )}
+          </div>
         </div>
       </div>
     </header>

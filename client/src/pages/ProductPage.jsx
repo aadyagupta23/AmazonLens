@@ -38,6 +38,7 @@ export default function ProductPage() {
   const { recordEvent, getProductMatch } = useSense();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -102,7 +103,7 @@ export default function ProductPage() {
         fetchSellerTrust(pid, savedReturns.length);
         fetchReviews(pid, 1);
       })
-      .catch(() => navigate("/"))
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, [productId]);
   useEffect(() => {
@@ -168,6 +169,18 @@ export default function ProductPage() {
     return (
       <div className="max-w-[1500px] mx-auto px-4 py-8 flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 border-4 border-[#FF9900] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="max-w-[1500px] mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-semibold text-[#0F1111]">Product not found</p>
+        <p className="text-sm text-[#565959]">This product may have been removed or the link is incorrect.</p>
+        <button onClick={() => navigate("/")} className="mt-2 text-sm text-[#007185] hover:underline">
+          ← Back to Home
+        </button>
       </div>
     );
   }
@@ -767,7 +780,7 @@ export default function ProductPage() {
                 );
               })()}
 
-              {showOnProduct && sustainData && companyEcoScore >= 80 && (
+              {showOnProduct && sustainData.score > 80 && (
                 <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                   <div className="flex items-center justify-between">
                     <div>

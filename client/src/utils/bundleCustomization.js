@@ -1,6 +1,4 @@
-import { products } from "../../../server/data/mockData.js";
-
-export function customizeBundle(bundleProducts, prompt) {
+export function customizeBundle(bundleProducts, prompt, products = []) {
   const lower = prompt.toLowerCase();
 
   let updated = [...bundleProducts];

@@ -60,10 +60,13 @@ function loadStore(filePath) {
 }
 
 function saveStore(map, filePath) {
+  const tmp = filePath + ".tmp";
   try {
-    fs.writeFileSync(filePath, JSON.stringify([...map], null, 2), "utf-8");
+    fs.writeFileSync(tmp, JSON.stringify([...map], null, 2), "utf-8");
+    fs.renameSync(tmp, filePath);
   } catch (err) {
     console.warn("Failed to save co-planner data:", err.message);
+    try { fs.unlinkSync(tmp); } catch (_) {}
   }
 }
 
