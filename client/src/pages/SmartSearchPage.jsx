@@ -27,9 +27,8 @@ import {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const trustConfig = (score) => {
-  if (score >= 80) return { color: 'text-green-600 bg-green-50 border-green-200', Icon: ShieldCheck, label: 'Genuine' };
-  if (score >= 60) return { color: 'text-amber-600 bg-amber-50 border-amber-200', Icon: ShieldAlert, label: 'Mixed' };
-  return { color: 'text-red-600 bg-red-50 border-red-200', Icon: ShieldX, label: 'Suspicious' };
+  if (score >= 75) return { color: 'text-green-600 bg-green-50 border-green-200', Icon: ShieldCheck, label: 'Verified' };
+  return { color: 'text-blue-600 bg-blue-50 border-blue-200', Icon: ShieldCheck, label: 'Trusted' };
 };
 
 const fmt = (n) =>

@@ -11,9 +11,8 @@ export const getDiscount = (original, current) => Math.round(((original - curren
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export const getTrustColor = (score) => {
-  if (score > 75) return { bg: "bg-[#067D62]", text: "text-white", label: "Genuine", hex: "#067D62" };
-  if (score >= 50) return { bg: "bg-[#FF9900]", text: "text-white", label: "Mixed", hex: "#FF9900" };
-  return { bg: "bg-[#CC0C39]", text: "text-white", label: "Suspicious", hex: "#CC0C39" };
+  if (score >= 75) return { bg: "bg-[#067D62]", text: "text-white", label: "Verified", hex: "#067D62" };
+  return { bg: "bg-[#0284c7]", text: "text-white", label: "Trusted", hex: "#0284c7" };
 };
 
 export const API = "";

@@ -12,12 +12,10 @@ import { Heart, Leaf, Users, Check, Plus, Minus } from "lucide-react";
 const STATUS_BADGE = {
   VERIFIED: "bg-[#067D62] text-white",
   TRUSTED:  "bg-[#0284c7] text-white",
-  MIXED:    "bg-[#FF9900] text-[#0F1111]",
 };
 const STATUS_LABEL = {
   VERIFIED: "Verified",
   TRUSTED:  "Trusted",
-  MIXED:    "Mixed",
 };
 
 export default function ProductCard({ product, greenerChoice = false }) {
@@ -90,8 +88,8 @@ export default function ProductCard({ product, greenerChoice = false }) {
     return senseMatchScore;
   })();
 
-  const status = product.companyStatus ?? product.productStatus ?? (score >= 80 ? "VERIFIED" : score >= 60 ? "MIXED" : "FLAGGED");
-  const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.MIXED;
+  const status = product.companyStatus ?? product.productStatus ?? (score >= 75 ? "VERIFIED" : "TRUSTED");
+  const badgeCls = STATUS_BADGE[status] ?? STATUS_BADGE.TRUSTED;
   const badgeLabel = STATUS_LABEL[status] ?? status;
 
   const handleAddToCart = (e) => {

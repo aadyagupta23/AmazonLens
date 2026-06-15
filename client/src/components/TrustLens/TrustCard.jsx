@@ -106,11 +106,9 @@ export default function TrustCard({ product, onClose }) {
             <div>
               <div className="text-white text-sm font-bold">Overall Trust Score</div>
               <div className={`text-xs font-medium mt-0.5 ${overall.text}`}>
-                {product.trustScore > 75
-                  ? "Genuine — safe to buy"
-                  : product.trustScore >= 50
-                  ? "Mixed — review carefully before buying"
-                  : "Suspicious — exercise caution"}
+                {product.trustScore >= 75
+                  ? "Verified — safe to buy"
+                  : "Trusted — generally reliable"}
               </div>
             </div>
           </div>

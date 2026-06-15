@@ -418,7 +418,7 @@ export default function SearchResults() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {sortedProducts.map((p) => {
                     const ecoScore = getSustainabilityData(p.id).score;
-                    const isGreener = prefs.enabled && prefs.prioritizeEco && ecoScore >= 75;
+                    const isGreener = prefs.enabled && prefs.prioritizeEco && ecoScore > 80;
                     return (
                       <ProductCard key={p.id} product={p} greenerChoice={isGreener} />
                     );

@@ -751,10 +751,9 @@ export default function ProductPage() {
 
               {/* TrustLens mini-badge in buy box */}
               {(() => {
-                const statusBg = !trustData ? "#FF9900"
+                const statusBg = !trustData ? "#0284c7"
                   : trustData.status === "VERIFIED" ? "#16a34a"
-                  : trustData.status === "MIXED" ? "#ea580c"
-                  : "#dc2626";
+                  : "#0284c7";
                 return (
                   <div
                     className="mt-4 rounded-lg px-3 py-2 transition-colors duration-700"
