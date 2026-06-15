@@ -30,6 +30,9 @@ export function OrdersProvider({ children }) {
     const updated = [order, ...orders];
     setOrders(updated);
     save(updated);
+    // Invalidate stale AI bundle cache so recommendations regenerate from latest order
+    localStorage.removeItem("amz_ai_bundles");
+    localStorage.removeItem("amz_ai_bundles_key");
     window.dispatchEvent(new CustomEvent("orders:updated"));
     return order;
   };
