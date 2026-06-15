@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { products } from "../../../../server/data/mockData.js";
 import { useOrders } from "../../contexts/OrdersContext.jsx";
 import { useHistory } from "../../contexts/HistoryContext.jsx";
 import { API } from "../../utils/format.js";
@@ -13,7 +12,19 @@ export default function ContinueYourJourney() {
   const { history } = useHistory();
 
   const [bundles, setBundles] = useState(null);
+  const [productMap, setProductMap] = useState({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/products`)
+      .then((r) => r.json())
+      .then(({ products }) => {
+        const map = {};
+        (products || []).forEach((p) => { map[p.id] = p; });
+        setProductMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Read fresh directly from localStorage to avoid stale React state
@@ -90,7 +101,7 @@ export default function ContinueYourJourney() {
 
   // AI bundles use items:[{productId}]
   const resolvedProducts = (featured.items || [])
-    .map((item) => products.find((p) => p.id === item.productId))
+    .map((item) => productMap[item.productId])
     .filter(Boolean);
 
   if (resolvedProducts.length === 0) return null;

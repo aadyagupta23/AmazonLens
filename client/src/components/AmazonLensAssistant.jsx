@@ -1,18 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MessageCircle, X, Send, Leaf, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
-import { products } from "../../../server/data/mockData.js";
 import { getSustainabilityData } from "../utils/sustainability.js";
+import { API } from "../utils/format.js";
 
 export default function AmazonLensAssistant() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API}/api/products`)
+      .then((r) => r.json())
+      .then(({ products }) => setAllProducts(products || []))
+      .catch(() => {});
+  }, []);
 
   const handleSearch = () => {
     const q = query.toLowerCase();
 
-    let filtered = [...products];
+    let filtered = [...allProducts];
 
     if (q.includes("tv")) {
       filtered = filtered.filter((p) =>

@@ -15,7 +15,10 @@ router.post("/suggestions", async (req, res) => {
 
   // Exclude the returned product and same brand
   const candidates = products.filter(
-    (p) => p.id !== productId && (p.brand || "").toLowerCase() !== brand.toLowerCase()
+    (p) =>
+      p.id !== productId &&
+      p.inStock !== false &&
+      (p.brand || "").toLowerCase() !== brand.toLowerCase()
   );
 
   const catalogText = candidates.map((p) =>

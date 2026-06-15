@@ -46,6 +46,12 @@ const CATALOG = [
 ];
 
 
+// GET /api/bundles — static curated bundles from mockData
+router.get("/", async (req, res) => {
+  const { bundles } = await import("../data/mockData.js");
+  res.json({ bundles });
+});
+
 // POST /api/bundles/ai
 // Body: { recentOrder: [{id,name,category}], olderOrders: [...], allPurchasedIds: [...], history: [{name}] }
 router.post("/ai", async (req, res) => {
@@ -156,7 +162,7 @@ Return ONLY valid JSON, no markdown, no extra text:
   try {
     const completion = await groqCall({
       model: PRIMARY_MODEL,
-      max_tokens: 600,
+      max_tokens: 900,
       temperature: 0.2,
       messages: [
         { role: "system", content: "You are a product bundle recommender. Return ONLY valid JSON with no markdown fences or extra text." },
@@ -165,7 +171,25 @@ Return ONLY valid JSON, no markdown, no extra text:
     });
 
     const raw = completion.choices[0].message.content.trim();
-    const text = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+    // Strip markdown fences
+    let text = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+    // Extract the outermost JSON object in case there's leading/trailing prose
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      text = text.slice(firstBrace, lastBrace + 1);
+    }
+
+    // Fix common LLM JSON mistakes:
+    // 1. Trailing commas before } or ]
+    text = text.replace(/,(\s*[}\]])/g, "$1");
+    // 2. Unescaped newlines inside string values
+    text = text.replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (match) =>
+      match.replace(/\n/g, "\\n").replace(/\r/g, "\\r")
+    );
+
     const parsed = JSON.parse(text);
 
     const validIds = new Set(CATALOG.map((p) => p.id));

@@ -152,41 +152,51 @@ router.post("/event", async (req, res) => {
   const { type, productId, category, brand, price, sustainable, guestId } = req.body;
   if (!type || !productId) return res.status(400).json({ message: "type and productId are required" });
 
-  const userId = extractUserId(req);
-  const profile = await getOrCreate(userId, guestId);
-  if (!profile) return res.status(400).json({ message: "userId or guestId required" });
+  try {
+    const userId = extractUserId(req);
+    const profile = await getOrCreate(userId, guestId);
+    if (!profile) return res.status(400).json({ message: "userId or guestId required" });
 
-  if (type === "view") {
-    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const recentView = profile.events.find(e => e.type === "view" && e.productId === productId && new Date(e.at) > tenMinAgo);
-    if (recentView) return res.json({ skipped: true });
+    if (type === "view") {
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const recentView = profile.events.find(e => e.type === "view" && e.productId === productId && new Date(e.at) > tenMinAgo);
+      if (recentView) return res.json({ skipped: true });
+    }
+
+    profile.events.push({ type, productId, category: category || "", brand: brand || "", price: price || 0, sustainable: !!sustainable });
+    recompute(profile);
+    await profile.save();
+    res.json({ ok: true });
+  } catch (err) {
+    console.warn("Sense /event error (DB may be unavailable):", err.message);
+    res.status(503).json({ ok: false, message: "Sense service temporarily unavailable" });
   }
-
-  profile.events.push({ type, productId, category: category || "", brand: brand || "", price: price || 0, sustainable: !!sustainable });
-  recompute(profile);
-  await profile.save();
-  res.json({ ok: true });
 });
 
 router.get("/profile", async (req, res) => {
-  const userId = extractUserId(req);
-  const guestId = req.query.guestId;
-  const profile = await getOrCreate(userId, guestId);
-  if (!profile) return res.status(400).json({ message: "userId or guestId required" });
+  try {
+    const userId = extractUserId(req);
+    const guestId = req.query.guestId;
+    const profile = await getOrCreate(userId, guestId);
+    if (!profile) return res.status(400).json({ message: "userId or guestId required" });
 
-  const eventCount = profile.events.length;
-  res.json({
-    mature: eventCount >= 5,
-    eventCount,
-    preferredBrands: profile.preferredBrands,
-    preferredCategories: profile.preferredCategories,
-    budgetRange: profile.budgetRange,
-    sustainabilityAffinity: profile.sustainabilityAffinity,
-    returnPatterns: profile.returnPatterns,
-    returnedBrands: profile.returnedBrands,
-    purchasedCount: profile.purchasedProductIds.length,
-    stage: eventCount < 5 ? "seedling" : eventCount < 20 ? "growing" : "established",
-  });
+    const eventCount = profile.events.length;
+    res.json({
+      mature: eventCount >= 5,
+      eventCount,
+      preferredBrands: profile.preferredBrands,
+      preferredCategories: profile.preferredCategories,
+      budgetRange: profile.budgetRange,
+      sustainabilityAffinity: profile.sustainabilityAffinity,
+      returnPatterns: profile.returnPatterns,
+      returnedBrands: profile.returnedBrands,
+      purchasedCount: profile.purchasedProductIds.length,
+      stage: eventCount < 5 ? "seedling" : eventCount < 20 ? "growing" : "established",
+    });
+  } catch (err) {
+    console.warn("Sense /profile error (DB may be unavailable):", err.message);
+    res.status(503).json({ message: "Sense service temporarily unavailable" });
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

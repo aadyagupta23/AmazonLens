@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Package, ChevronRight, Sparkles } from "lucide-react";
 
-import { bundles, products } from "../../../server/data/mockData.js";
 import ProductCard from "../components/ProductCard.jsx";
+import { API } from "../utils/format.js";
 
 function CompletenessRing({ pct }) {
   const color =
@@ -36,10 +36,10 @@ function CompletenessRing({ pct }) {
   );
 }
 
-function AiBundleCard({ bundle }) {
+function AiBundleCard({ bundle, productMap }) {
   const navigate = useNavigate();
   const resolvedProducts = (bundle.items || [])
-    .map((i) => products.find((p) => p.id === i.productId))
+    .map((i) => productMap[i.productId])
     .filter(Boolean);
   const total = resolvedProducts.reduce((s, p) => s + p.price, 0);
   const fmt = (n) => `₹${n >= 1000 ? (n / 1000).toFixed(1) + "K" : n}`;
@@ -97,6 +97,20 @@ function AiBundleCard({ bundle }) {
 
 export default function BundlesPage() {
   const navigate = useNavigate();
+  const [bundles, setBundles] = useState([]);
+  const [productMap, setProductMap] = useState({});
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/api/bundles`).then((r) => r.json()),
+      fetch(`${API}/api/products`).then((r) => r.json()),
+    ]).then(([bundleData, productData]) => {
+      setBundles(bundleData.bundles || []);
+      const map = {};
+      (productData.products || []).forEach((p) => { map[p.id] = p; });
+      setProductMap(map);
+    }).catch(() => {});
+  }, []);
 
   const aiBundles = (() => {
     try { return JSON.parse(localStorage.getItem("amz_ai_bundles") || "[]"); }
@@ -122,7 +136,7 @@ export default function BundlesPage() {
             </span>
           </div>
           <div className="grid md:grid-cols-2 gap-5 mb-2">
-            {aiBundles.map((b) => <AiBundleCard key={b.id} bundle={b} />)}
+            {aiBundles.map((b) => <AiBundleCard key={b.id} bundle={b} productMap={productMap} />)}
           </div>
           <hr className="mt-8 mb-6 border-[#DDD]" />
         </div>
@@ -131,8 +145,8 @@ export default function BundlesPage() {
       <h2 className="text-xl font-bold text-[#0F1111] mb-4">All Bundles</h2>
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
         {bundles.map((bundle) => {
-          const resolvedProducts = bundle.products
-            .map((id) => products.find((p) => p.id === id))
+          const resolvedProducts = (bundle.products || [])
+            .map((id) => productMap[id])
             .filter(Boolean);
 
           const avgTrust =
