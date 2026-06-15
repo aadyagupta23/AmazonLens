@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import {
@@ -9,6 +9,7 @@ import { useOrders } from "../contexts/OrdersContext.jsx";
 import { useWitness } from "../contexts/WitnessContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useReviews } from "../contexts/ReviewsContext.jsx";
+import { useSense } from "../contexts/SenseContext.jsx";
 import { formatPrice, API } from "../utils/format.js";
 
 function timeAgo(isoString) {
@@ -212,9 +213,31 @@ function InlineReviewForm({ item, user, onDone }) {
 export default function OrdersPage() {
   const { orders, returnItem } = useOrders();
   const { user } = useAuth();
+  const { recordEvent } = useSense();
   const [expandedWitness, setExpandedWitness] = useState(null);
   const [expandedReview, setExpandedReview] = useState(null);
   const [expandedDetails, setExpandedDetails] = useState(null);
+  const [returnConfirm, setReturnConfirm] = useState(null); // { orderId, itemId, name }
+  const [returnSuccess, setReturnSuccess] = useState(null); // item name just returned
+
+  const confirmReturn = () => {
+    if (!returnConfirm) return;
+    returnItem(returnConfirm.orderId, returnConfirm.itemId, user?.email);
+    setReturnSuccess(returnConfirm.name);
+    setReturnConfirm(null);
+    setTimeout(() => setReturnSuccess(null), 3000);
+  };
+
+  // DNA: log purchase events for existing orders once per session
+  useEffect(() => {
+    if (!orders.length) return;
+    const key = "sense_orders_fired";
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    const allItems = orders.flatMap((o) => o.items || []);
+    // Fire sequentially to avoid Mongoose version conflicts from concurrent saves
+    allItems.slice(0, 8).reduce((p, item) => p.then(() => recordEvent("purchase", item)), Promise.resolve());
+  }, [orders]);
 
   // Flatten all orders into individual item rows, excluding returned items
   const orderItems = orders.flatMap((order) =>
@@ -248,6 +271,48 @@ export default function OrdersPage() {
 
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-6">
+
+      {/* Return success toast */}
+      {returnSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium">
+          <RotateCcw size={15} /> Return initiated for <span className="font-bold truncate max-w-[160px]">{returnSuccess}</span>
+        </div>
+      )}
+
+      {/* Return confirmation modal */}
+      {returnConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setReturnConfirm(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <RotateCcw size={18} className="text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[#0F1111] text-base">Confirm Return</h3>
+                <p className="text-xs text-[#565959]">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-[#0F1111] mb-5 line-clamp-3">
+              Return <span className="font-semibold">{returnConfirm.name}</span>? A refund will be initiated within 3–5 business days.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setReturnConfirm(null)}
+                className="flex-1 border border-[#DDD] text-[#565959] font-semibold py-2.5 rounded-full text-sm hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReturn}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-full text-sm transition-colors"
+              >
+                Yes, Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold text-[#0F1111] mb-6">Your Orders</h1>
 
       {/* Impact Summary */}
@@ -428,7 +493,7 @@ export default function OrdersPage() {
                     </button>
                     {!item.returnStatus && (
                       <button
-                        onClick={() => returnItem(item.orderId, item.id, user?.email)}
+                        onClick={() => setReturnConfirm({ orderId: item.orderId, itemId: item.id, name: item.name })}
                         className="flex items-center gap-1.5 border border-[#DDD] hover:bg-[#FFF8F0] hover:border-orange-300 hover:text-orange-700 text-[#565959] px-5 py-2 rounded text-sm font-semibold transition-colors"
                       >
                         <RotateCcw size={13} /> Return

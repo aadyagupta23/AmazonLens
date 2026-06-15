@@ -17,11 +17,13 @@ import customerRoutes from "./routes/customers.js";
 import companyRoutes from "./routes/companies.js";
 import bundleRoutes from "./routes/bundles.js";
 import returnsRoutes from "./routes/returns.js";
+import wishlistRoutes from "./routes/wishlists.js";
 import {
   getProductWitnesses,
   registerWitness,
   unregisterWitness,
   chatRooms,
+  appendRoomMessage,
 } from "./witnessState.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -121,11 +123,21 @@ io.on("connection", (socket) => {
     io.to(room.buyerSocketId).emit("chat:declined", { roomId });
   });
 
+  // ── Rejoin active room (reconnect) — replay recent messages ────────────
+  socket.on("chat:rejoin", ({ roomId }) => {
+    const room = chatRooms.get(roomId);
+    if (!room || room.status !== "active") return;
+    socket.join(roomId);
+    const history = (room.messages || []).slice(-20);
+    if (history.length > 0) socket.emit("chat:history", { roomId, messages: history });
+  });
+
   // ── Message in an active room ───────────────────────────────────────────
   socket.on("chat:message", ({ roomId, text }) => {
     const room = chatRooms.get(roomId);
     if (!room || room.status !== "active") return;
     const from = socket.id === room.buyerSocketId ? "buyer" : "witness";
+    appendRoomMessage(roomId, from, text);
     io.to(roomId).emit("chat:message", { roomId, text, from });
   });
 
@@ -165,6 +177,7 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/dna", dnaRoutes);
 app.use("/api/bundles", bundleRoutes);
 app.use("/api/returns", returnsRoutes);
+app.use("/api/wishlists", wishlistRoutes);
 
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));
 

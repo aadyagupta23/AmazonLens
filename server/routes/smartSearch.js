@@ -419,7 +419,7 @@ async function generateAIBundle(query, budget, brandPrefs = []) {
       model: PRIMARY_MODEL,
       max_tokens: 500,
       temperature: 0.1,
-      noFallback: true,
+      noFallback: false,
       messages: [
         {
           role: 'system',

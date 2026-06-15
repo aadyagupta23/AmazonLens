@@ -79,8 +79,7 @@ function mapOLBook(work, genre) {
     deliveryFree: true,
     trustScore: trust,
     trustLabel: trust > 75 ? "Genuine" : "Mixed",
-    isFakeDiscount: false,
-    fakeDiscountNote: null,
+
     buyNowOrWait: "buy",
     waitReason: null,
     spikePriceMonths: [],

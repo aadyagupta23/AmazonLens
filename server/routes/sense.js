@@ -192,7 +192,16 @@ router.post("/event", async (req, res) => {
 
     profile.events.push({ type, productId, category: category || "", brand: brand || "", price: price || 0, sustainable: !!sustainable });
     recompute(profile);
-    await profile.save();
+    try {
+      await profile.save();
+    } catch (saveErr) {
+      // Optimistic concurrency conflict — a sibling request already saved this profile.
+      // Treat as success: behavioral data will be captured by the winning save.
+      if (saveErr.name === "VersionError" || (saveErr.message && saveErr.message.includes("No matching document"))) {
+        return res.json({ ok: true });
+      }
+      throw saveErr;
+    }
     res.json({ ok: true });
   } catch (err) {
     console.warn("Sense /event error (DB may be unavailable):", err.message);

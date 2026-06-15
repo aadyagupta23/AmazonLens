@@ -836,6 +836,32 @@ router.post("/:planId/split-expense", (req, res) => {
   res.json({ plan: enrichPlan(plan) });
 });
 
+// ─── POST /api/co-planner/:planId/log-expense ────────────────────────────────
+router.post("/:planId/log-expense", (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  const { paidBy, amount, description, splitWith } = req.body;
+  if (!paidBy || !amount || amount <= 0) return res.status(400).json({ error: "paidBy and amount required" });
+
+  const splitMembers = (splitWith && splitWith.length > 0) ? splitWith : plan.members.map((m) => m.name);
+  const perPerson = Math.round(amount / splitMembers.length);
+  const splits = splitMembers.map((m) => ({ member: m, amount: perPerson, paid: m === paidBy }));
+
+  const expenseEntry = {
+    id: generateId(),
+    freeForm: true,
+    paidBy,
+    amount,
+    description: description || "Manual expense",
+    splits,
+    createdAt: now(),
+  };
+  plan.expenses.push(expenseEntry);
+  addActivity(plan, `${paidBy} logged expense: "${expenseEntry.description}" ₹${amount}`, paidBy);
+  res.json({ plan: enrichPlan(plan) });
+});
+
 // ─── POST /api/co-planner/:planId/leave ──────────────────────────────────────
 router.post("/:planId/leave", (req, res) => {
   const plan = plans.get(req.params.planId);

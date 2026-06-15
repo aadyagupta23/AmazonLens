@@ -1,8 +1,56 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MessageCircle, ThumbsUp, ThumbsDown, Users, Radio, UserPlus } from "lucide-react";
+import { MessageCircle, ThumbsUp, ThumbsDown, Users, Radio, UserPlus, Send, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import ChatModal from "./ChatModal.jsx";
 import { getSocket } from "../../utils/socket.js";
+
+function LeaveQuestionForm({ productId }) {
+  const STORE_KEY = `witness_questions_${productId}`;
+  const [sent, setSent] = useState(false);
+  const [text, setText] = useState("");
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    const questions = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+    questions.push({ text: text.trim(), at: new Date().toISOString() });
+    localStorage.setItem(STORE_KEY, JSON.stringify(questions));
+    setText("");
+    setSent(true);
+  };
+
+  if (sent) {
+    return (
+      <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+        <CheckCircle2 size={18} className="text-green-600 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-green-800">Question saved!</p>
+          <p className="text-xs text-green-600">A live witness will answer when they come online.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-4 border border-[#DDD] rounded-xl p-4 bg-[#FAFAFA]">
+      <p className="text-xs font-semibold text-[#0F1111] mb-2">Leave a question for when a witness comes online:</p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="e.g. How is the battery life after 6 months?"
+        rows={3}
+        className="w-full text-sm border border-[#DDD] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#007185] resize-none bg-white"
+      />
+      <button
+        type="submit"
+        disabled={!text.trim()}
+        className="mt-2 flex items-center gap-1.5 bg-[#007185] hover:bg-[#005f6b] disabled:opacity-40 text-white text-xs font-bold px-4 py-1.5 rounded-full transition-colors"
+      >
+        <Send size={11} /> Send Question
+      </button>
+    </form>
+  );
+}
 
 export default function WitnessPanel({ product }) {
   const [activeWitness, setActiveWitness] = useState(null);
@@ -99,21 +147,24 @@ export default function WitnessPanel({ product }) {
         </div>
       ) : (
         /* Empty state */
-        <div className="text-center py-6 px-4">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Users size={22} className="text-gray-400" />
+        <div className="px-1">
+          <div className="text-center py-4">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Users size={22} className="text-gray-400" />
+            </div>
+            <p className="text-sm font-semibold text-[#0F1111] mb-1">No live witnesses right now</p>
+            <p className="text-xs text-[#565959] mb-4 max-w-xs mx-auto">
+              Real owners can go live to answer questions. Own this product?
+            </p>
+            <Link
+              to="/witness"
+              className="inline-flex items-center gap-1.5 bg-[#FF9900] hover:bg-[#F7CA00] text-[#131921] font-bold text-xs px-4 py-2 rounded-full transition-colors"
+            >
+              <UserPlus size={13} />
+              Be a Witness · Earn ₹50 cashback
+            </Link>
           </div>
-          <p className="text-sm font-semibold text-[#0F1111] mb-1">No live witnesses right now</p>
-          <p className="text-xs text-[#565959] mb-4 max-w-xs mx-auto">
-            Real owners can go live to answer questions. Own this product?
-          </p>
-          <Link
-            to="/witness"
-            className="inline-flex items-center gap-1.5 bg-[#FF9900] hover:bg-[#F7CA00] text-[#131921] font-bold text-xs px-4 py-2 rounded-full transition-colors"
-          >
-            <UserPlus size={13} />
-            Be a Witness · Earn ₹50 cashback
-          </Link>
+          <LeaveQuestionForm productId={product.id} />
         </div>
       )}
 

@@ -57,12 +57,12 @@ export default function Homepage() {
     axios.get(`${API}/api/products?limit=8`).then(({ data }) => setProducts(data.products || []));
   }, []);
 
-  // Fetch Sense recommendations once profile is ready
+  // Fetch Sense recommendations once profile is ready (no maturity gate — always try)
   useEffect(() => {
-    if (senseReady && profile?.mature) {
+    if (senseReady) {
       getRecommendations().then((recs) => { if (recs.length > 0) setSenseRecs(recs); });
     }
-  }, [senseReady, profile?.mature]);
+  }, [senseReady]);
 
   useEffect(() => {
     const t = setInterval(() => setHeroSlide((s) => (s + 1) % HERO_SLIDES.length), 5000);

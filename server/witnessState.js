@@ -3,8 +3,16 @@
 // productId → Map(socketId → witnessInfo)
 const liveWitnesses = new Map();
 
-// roomId → { productId, buyerSocketId, witnessSocketId, status }
+// roomId → { productId, buyerSocketId, witnessSocketId, status, messages: [{from, text, at}] }
 export const chatRooms = new Map();
+
+export function appendRoomMessage(roomId, from, text) {
+  const room = chatRooms.get(roomId);
+  if (!room) return;
+  if (!room.messages) room.messages = [];
+  room.messages.push({ from, text, at: Date.now() });
+  if (room.messages.length > 50) room.messages = room.messages.slice(-50);
+}
 
 export function getProductWitnesses(productId) {
   const m = liveWitnesses.get(productId);

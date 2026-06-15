@@ -1,47 +1,46 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, ArrowRight } from "lucide-react";
 
 const USERS_KEY = "al_users";
 
-function loadUsers() {
-  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; }
-}
-
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", current: "", next: "", confirm: "" });
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) { setError("Please enter your email address."); return; }
 
-    if (form.next.length < 6) { setError("New password must be at least 6 characters."); return; }
-    if (form.next !== form.confirm) { setError("Passwords do not match."); return; }
-
-    const users = loadUsers();
-    const idx = users.findIndex((u) => u.email.toLowerCase() === form.email.toLowerCase());
-    if (idx === -1) { setError("No account found with this email."); return; }
-    if (users[idx].password !== form.current) { setError("Current password is incorrect."); return; }
-
-    users[idx].password = form.next;
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    setSuccess(true);
+    // Store email in sessionStorage so ResetPasswordPage can use it (mock flow)
+    sessionStorage.setItem("reset_email", trimmed);
+    setSubmitted(true);
   };
 
-  if (success) {
+  if (submitted) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-sm text-center">
-          <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock size={24} className="text-green-600" />
+          <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail size={24} className="text-blue-600" />
           </div>
-          <h2 className="text-lg font-bold text-[#0F1111] mb-2">Password updated!</h2>
-          <p className="text-sm text-[#565959] mb-6">Your password has been changed successfully.</p>
-          <Link to="/login" className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold px-8 py-2.5 rounded-full text-sm">
-            Sign in
+          <h2 className="text-lg font-bold text-[#0F1111] mb-2">Check your inbox</h2>
+          <p className="text-sm text-[#565959] mb-1">
+            We've sent a password reset link to
+          </p>
+          <p className="text-sm font-semibold text-[#0F1111] mb-6">{email}</p>
+          <button
+            onClick={() => navigate("/reset-password")}
+            className="w-full flex items-center justify-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold py-2.5 rounded-full text-sm mb-4"
+          >
+            Continue to Reset Password <ArrowRight size={14} />
+          </button>
+          <Link to="/login" className="text-xs text-[#007185] hover:underline">
+            Back to sign in
           </Link>
         </div>
       </div>
@@ -51,8 +50,10 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-sm">
-        <h1 className="text-xl font-bold text-[#0F1111] mb-1">Change password</h1>
-        <p className="text-xs text-[#565959] mb-6">Enter your email and current password to set a new one.</p>
+        <h1 className="text-xl font-bold text-[#0F1111] mb-1">Forgot your password?</h1>
+        <p className="text-xs text-[#565959] mb-6">
+          Enter your email and we'll send you a reset link.
+        </p>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2 mb-4">
@@ -61,30 +62,24 @@ export default function ForgotPasswordPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {[
-            { key: "email",   label: "Email address",    type: "email",    placeholder: "you@example.com" },
-            { key: "current", label: "Current password", type: "password", placeholder: "••••••••" },
-            { key: "next",    label: "New password",     type: "password", placeholder: "Min. 6 characters" },
-            { key: "confirm", label: "Confirm new password", type: "password", placeholder: "••••••••" },
-          ].map(({ key, label, type, placeholder }) => (
-            <div key={key}>
-              <label className="block text-xs font-medium text-[#565959] mb-1">{label}</label>
-              <input
-                type={type}
-                value={form[key]}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                placeholder={placeholder}
-                required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
-              />
-            </div>
-          ))}
+          <div>
+            <label className="block text-xs font-medium text-[#565959] mb-1">Email address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#FF9900]"
+            />
+          </div>
 
           <button
             type="submit"
             className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold py-2.5 rounded-full text-sm mt-2"
           >
-            Update password
+            Send reset link
           </button>
         </form>
 

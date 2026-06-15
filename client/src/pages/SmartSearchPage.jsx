@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext.jsx';
 import { useOrders } from '../contexts/OrdersContext.jsx';
+import { useSense } from '../contexts/SenseContext.jsx';
 import {
   Search,
   Sparkles,
@@ -577,6 +578,7 @@ function CategorySection({ categoryKey, products }) {
 export default function SmartSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { orders } = useOrders();
+  const { recordEvent } = useSense();
   const initialQuery = searchParams.get('q') || '';
 
   const [inputVal, setInputVal] = useState(initialQuery);
@@ -611,13 +613,14 @@ export default function SmartSearchPage() {
       });
       const data = await res.json();
       setResults(data);
+      recordEvent('search', { query: q, setupType: data.setupType || null, categories: data.parsed?.categories || [] });
     } catch (err) {
       console.error('Search error:', err);
       setResults({ results: [], bundle: null, closestAlternative: null, groups: {}, error: true });
     } finally {
       setLoading(false);
     }
-  }, [setSearchParams, orders]);
+  }, [setSearchParams, orders, recordEvent]);
 
   // Initial load
   useEffect(() => {

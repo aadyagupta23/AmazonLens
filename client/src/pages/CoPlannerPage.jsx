@@ -8,11 +8,12 @@ import {
   Clock, Target, BarChart3, MessageSquare, ThumbsUp,
   ArrowRight, Shield, Bell, Activity, Archive, LogOut,
   CircleDot, Sparkles, UserPlus, QrCode, ExternalLink, Search, ThumbsDown,
-  GripVertical
+  GripVertical, Receipt, Send
 } from "lucide-react";
 import { useCoPlanner } from "../contexts/CoPlannerContext.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useSense } from "../contexts/SenseContext.jsx";
 import { API, formatPrice } from "../utils/format.js";
 
 const fmt = (n) => formatPrice(n);
@@ -695,6 +696,7 @@ export default function CoPlannerPage() {
   const { user } = useAuth();
   const { plans: trackedPlans, trackPlan, loadPlan, addToPlan, memberName, deletePlan, dashboardResetKey, activePlan, setActivePlan } = useCoPlanner();
   const { addToCart } = useCart();
+  const { recordEvent } = useSense();
 
   // Handle redirect back from login after join attempt
   useEffect(() => {
@@ -723,7 +725,45 @@ export default function CoPlannerPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPowered, setAiPowered] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
+  const [timeline, setTimeline] = useState(null);
+  const [expenses, setExpenses] = useState(null);
+  const [showExpenseLog, setShowExpenseLog] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({ paidBy: "", amount: "", description: "", splitWith: [] });
+  const [expenseLogging, setExpenseLogging] = useState(false);
   const currentUser = memberName;
+
+  const loadPlanSidebar = (planId) => {
+    fetch(`${API}/api/co-planner/${planId}/timeline`)
+      .then((r) => r.json()).then(setTimeline).catch(() => {});
+    fetch(`${API}/api/co-planner/${planId}/expenses-summary`)
+      .then((r) => r.json()).then(setExpenses).catch(() => {});
+  };
+
+  const logExpense = async () => {
+    if (!plan || !expenseForm.paidBy || !expenseForm.amount) return;
+    setExpenseLogging(true);
+    try {
+      const res = await fetch(`${API}/api/co-planner/${plan.id}/log-expense`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paidBy: expenseForm.paidBy,
+          amount: Number(expenseForm.amount),
+          description: expenseForm.description || "Manual expense",
+          splitWith: expenseForm.splitWith,
+        }),
+      });
+      const data = await res.json();
+      if (data.plan) {
+        setPlan(data.plan);
+        loadPlanSidebar(plan.id);
+        setShowExpenseLog(false);
+        setExpenseForm({ paidBy: "", amount: "", description: "", splitWith: [] });
+      }
+    } finally {
+      setExpenseLogging(false);
+    }
+  };
 
   // Load plan
   useEffect(() => {
@@ -738,6 +778,7 @@ export default function CoPlannerPage() {
             setActivePlan(d.plan);
             loadRecommendations(d.plan.id);
             loadAiSuggestions(d.plan.id);
+            loadPlanSidebar(d.plan.id);
           }
         })
         .catch(() => {})
@@ -800,6 +841,7 @@ export default function CoPlannerPage() {
     trackPlan(newPlan);
     window.history.replaceState(null, "", `/co-planner?id=${newPlan.id}`);
     loadRecommendations(newPlan.id);
+    loadPlanSidebar(newPlan.id);
     loadAiSuggestions(newPlan.id);
   };
 
@@ -839,6 +881,9 @@ export default function CoPlannerPage() {
       alert(data.message);
     } else if (data.plan) {
       setPlan(data.plan);
+      // DNA: fire wishlist event for the added product
+      const added = data.plan.items.find((i) => i.productId === productId);
+      if (added?.product) recordEvent("wishlist", added.product);
       loadRecommendations(plan.id);
     }
   };
@@ -1250,6 +1295,66 @@ export default function CoPlannerPage() {
               )}
             </div>
 
+            {/* Timeline */}
+            {timeline && (timeline.thisWeek?.length > 0 || timeline.thisMonth?.length > 0) && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                  <Calendar size={12} className="text-[#007185]" /> Timeline
+                </h3>
+                {[
+                  { label: "This Week", items: timeline.thisWeek || [] },
+                  { label: "This Month", items: timeline.thisMonth || [] },
+                  { label: "Later", items: timeline.later || [] },
+                ].map(({ label, items }) =>
+                  items.length > 0 ? (
+                    <div key={label} className="mb-2">
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase mb-1">{label}</p>
+                      {items.map((item) => (
+                        <div key={item.productId} className="flex items-center gap-1.5 py-1">
+                          <Clock size={10} className="text-gray-400 flex-shrink-0" />
+                          <span className="text-[11px] text-gray-700 truncate flex-1">{item.product?.name || item.productId}</span>
+                          <span className="text-[10px] text-gray-400">{item.neededBy ? new Date(item.neededBy).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null
+                )}
+              </div>
+            )}
+
+            {/* Log Expense button */}
+            <button
+              onClick={() => setShowExpenseLog(true)}
+              className="w-full flex items-center justify-center gap-2 bg-[#007185] hover:bg-[#005f6b] text-white text-xs font-bold py-2.5 rounded-lg transition-colors"
+            >
+              <Receipt size={13} /> Log Expense
+            </button>
+
+            {/* Expense Summary */}
+            {expenses && expenses.totalExpenses > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                  <Wallet size={12} className="text-[#007185]" /> Who Owes What
+                </h3>
+                {Object.entries(expenses.balances || {}).map(([name, bal]) => (
+                  <div key={name} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
+                    <span className="text-[11px] font-medium text-gray-700 truncate">{name}</span>
+                    <div className="text-right">
+                      {bal.owes > 0 && (
+                        <p className="text-[10px] text-red-600 font-semibold">Owes ₹{bal.owes.toLocaleString("en-IN")}</p>
+                      )}
+                      {bal.owed > 0 && (
+                        <p className="text-[10px] text-green-600 font-semibold">Gets ₹{bal.owed.toLocaleString("en-IN")}</p>
+                      )}
+                      {bal.owes === 0 && bal.owed === 0 && (
+                        <p className="text-[10px] text-gray-400">Settled</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Activity feed */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <ActivityFeed activity={plan.activity || []} />
@@ -1260,6 +1365,103 @@ export default function CoPlannerPage() {
 
       {/* Invite Modal */}
       {showInvite && <InviteModal planId={plan.id} onClose={() => setShowInvite(false)} />}
+
+      {/* Log Expense Modal */}
+      {showExpenseLog && plan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowExpenseLog(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Receipt size={16} className="text-[#007185]" />
+                <h3 className="font-bold text-[#0F1111] text-base">Log Expense</h3>
+              </div>
+              <button onClick={() => setShowExpenseLog(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-[#565959] mb-1 block">Who paid?</label>
+                <select
+                  value={expenseForm.paidBy}
+                  onChange={(e) => setExpenseForm((f) => ({ ...f, paidBy: e.target.value }))}
+                  className="w-full border border-[#DDD] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#007185]"
+                >
+                  <option value="">Select member</option>
+                  {(plan.members || []).map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#565959] mb-1 block">Amount (₹)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={expenseForm.amount}
+                  onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))}
+                  placeholder="e.g. 500"
+                  className="w-full border border-[#DDD] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#007185]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#565959] mb-1 block">Description (optional)</label>
+                <input
+                  type="text"
+                  value={expenseForm.description}
+                  onChange={(e) => setExpenseForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="e.g. Delivery charge"
+                  className="w-full border border-[#DDD] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#007185]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#565959] mb-1 block">Split with (leave empty to split equally among all)</label>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {(plan.members || []).map((m) => (
+                    <label key={m.name} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={expenseForm.splitWith.includes(m.name)}
+                        onChange={(e) => {
+                          setExpenseForm((f) => ({
+                            ...f,
+                            splitWith: e.target.checked
+                              ? [...f.splitWith, m.name]
+                              : f.splitWith.filter((n) => n !== m.name),
+                          }));
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-[#0F1111]">{m.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setShowExpenseLog(false)}
+                className="flex-1 border border-[#DDD] text-[#565959] font-semibold py-2.5 rounded-full text-sm hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={logExpense}
+                disabled={expenseLogging || !expenseForm.paidBy || !expenseForm.amount}
+                className="flex-1 bg-[#007185] hover:bg-[#005f6b] disabled:opacity-40 text-white font-bold py-2.5 rounded-full text-sm flex items-center justify-center gap-1.5 transition-colors"
+              >
+                {expenseLogging ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                Log It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

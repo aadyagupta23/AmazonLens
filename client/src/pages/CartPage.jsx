@@ -23,6 +23,7 @@ export default function CartPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { prefs } = useSustainability();
+  const { recordEvent } = useDna();
   const [activeTab, setActiveTab] = useState("Cart");
   const [senseItems, setSenseItems] = useState([]);
   const [sharedPlans, setSharedPlans] = useState([]);
@@ -38,6 +39,15 @@ export default function CartPage() {
 
   useEffect(() => { localStorage.setItem("al_hideSharedItems", String(hideShared)); }, [hideShared]);
   useEffect(() => { localStorage.setItem("al_cartSelection", JSON.stringify(selected)); }, [selected]);
+
+  // DNA: log cart_add events once per session for items currently in cart
+  useEffect(() => {
+    if (!items.length) return;
+    const key = "sense_cart_fired";
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    items.reduce((p, item) => p.then(() => recordEvent("cart_add", item)), Promise.resolve());
+  }, [items]);
 
   // Sustainability
   const cartSustainScore = getUserSustainabilityScore(items, prefs);
