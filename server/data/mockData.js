@@ -4285,9 +4285,9 @@ export const products = [
     spikePriceMonths: [],
     priceHistory: [7999, 7999, 6999, 6999, 6999, 5999, 6999, 6999, 6999, 6999, 6999, 6999],
     images: [
-      "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=400&fit=crop&auto=format"
+      "https://images.unsplash.com/photo-1526775310031-fc50d81ce518?w=400&h=400&fit=crop&auto=format"
     ],
-    thumbnail: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=400&fit=crop&auto=format",
+    thumbnail: "https://images.unsplash.com/photo-1526775310031-fc50d81ce518?w=400&h=400&fit=crop&auto=format",
     description: "Fire TV Stick 4K Max supports Wi-Fi 6E for lightning-fast streaming. Access 1.5 million movies and TV episodes.",
     features: [
       "4K + HDR10+ streaming",
@@ -7270,8 +7270,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [699, 450, 349, 349, 349, 349, 349, 349, 349, 349, 349, 349],
-    images: ["https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=400&fit=crop&auto=format"],
-    thumbnail: "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=400&fit=crop&auto=format",
+    images: ["https://images.unsplash.com/photo-1544816155-12df9643f363?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=400&h=400&fit=crop&auto=format",
     description: "Heavy-duty canvas-feel washable tote bags built to replace single-use plastic grocery alternatives effortlessly.",
     features: [
       "Reinforced multi-stitch handles",
@@ -10252,8 +10252,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [1499, 899, 799, 699, 699, 699, 699, 699, 699, 699, 699, 699],
-    images: ["https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop&auto=format"],
-    thumbnail: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop&auto=format",
+    images: ["https://images.unsplash.com/photo-1593642634315-48f5414c3ad9?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1593642634315-48f5414c3ad9?w=400&h=400&fit=crop&auto=format",
     description: "Foldable design premium aluminum framing providing multi-level viewing angle adjustments to relieve posture fatigue.",
     features: [
       "Ventilated open-frame cooling construction",
@@ -11444,8 +11444,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [799, 499, 399, 399, 399, 399, 399, 399, 399, 399, 399, 399],
-    images: ["https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=400&fit=crop&auto=format"],
-    thumbnail: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=400&fit=crop&auto=format",
+    images: ["https://images.unsplash.com/photo-1723214263202-3f3766d919eb?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1723214263202-3f3766d919eb?w=400&h=400&fit=crop&auto=format",
     description: "Flexible industrial neoprene cord organizers outfitted with zipper mechanics and custom DIY cut exit-holes for cable clusters.",
     features: [
       "Form-fitting durable neoprene fabrics",
@@ -15618,8 +15618,8 @@ export const products = [
     waitReason: null,
     spikePriceMonths: [],
     priceHistory: [999, 549, 449, 449, 449, 449, 449, 449, 449, 449, 449, 449],
-    images: ["https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400&h=400&fit=crop&auto=format"],
-    thumbnail: "https://images.unsplash.com/photo-1591488320449-011701bb6704?w=400&h=400&fit=crop&auto=format",
+    images: ["https://images.unsplash.com/photo-1614179924047-e1ab49a0a0cf?w=400&h=400&fit=crop&auto=format"],
+    thumbnail: "https://images.unsplash.com/photo-1614179924047-e1ab49a0a0cf?w=400&h=400&fit=crop&auto=format",
     description: "Expansive layout performance cloth mousepad featuring dense anti-fray braided stitch borders and natural non-slip rubber grip footprints.",
     features: [
       "Ultra-smooth tracking micro-weave surfaces",
