@@ -94,14 +94,26 @@ export default function CartPage() {
         productName: "Nescafé Gold Blend 200g",
         price: 649,
         trustScore: 79,
-        lastOrderDate: new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10),
+        lastOrderDate: new Date(Date.now() - 26 * 86400000).toISOString().slice(0, 10),
         avgCycleDays: 28,
         daysOverdue: 0,
-        urgency: "Due today",
+        urgency: "Due soon",
         thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg",
       });
     }
-    setSenseItems(candidates.slice(0, 5));
+    // Fetch stock data for candidates and attach it
+    const final = candidates.slice(0, 5);
+    const ids = final.map((c) => c.productId).join(",");
+    fetch(`${API}/api/sense/stock-batch?ids=${ids}`)
+      .then((r) => r.json())
+      .then(({ stockData }) => {
+        const enriched = final.map((c) => {
+          const sd = stockData?.[c.productId];
+          return { ...c, lowStock: sd?.lowStock || false, stockLeft: sd?.stock ?? null };
+        });
+        setSenseItems(enriched);
+      })
+      .catch(() => setSenseItems(final));
   }, [orders]);
 
   // Fetch co-plan items that belong to current user
@@ -506,6 +518,9 @@ export default function CartPage() {
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${si.daysOverdue > 0 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>{si.urgency}</span>
                     </div>
                     <p className="text-xs text-[#565959] mt-0.5">Avg. cycle: every {si.avgCycleDays} days · Last ordered {si.lastOrderDate}</p>
+                    {si.lowStock && (
+                      <p className="text-xs text-red-600 font-medium mt-0.5">⚠️ Only {si.stockLeft} left in stock — consider buying early</p>
+                    )}
                   </div>
                   <button
                     onClick={() => { addToCart({ id: si.productId, name: si.productName, price: si.price, trustScore: si.trustScore, thumbnail: si.thumbnail, isPrime: true }); setActiveTab("Cart"); }}

@@ -1,19 +1,19 @@
 import React, { useEffect, useState, useRef } from "react";
-import { X, RefreshCw, ShoppingCart } from "lucide-react";
+import { X, RefreshCw, ShoppingCart, AlertTriangle } from "lucide-react";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useOrders } from "../contexts/OrdersContext.jsx";
-import { formatPrice } from "../utils/format.js";
+import { formatPrice, API } from "../utils/format.js";
 
 export default function SensePopup() {
   const [visible, setVisible] = useState(false);
   const [item, setItem] = useState(null);
+  const [stockInfo, setStockInfo] = useState(null);
   const { addToCart, items: cartItems } = useCart();
   const { orders } = useOrders();
   const dismissTimer = useRef(null);
   const hasShown = useRef(false);
 
   useEffect(() => {
-    // Only show once per session
     if (hasShown.current) return;
 
     // Compute reorder predictions from real order history
@@ -33,32 +33,26 @@ export default function SensePopup() {
     const candidates = [];
 
     for (const [pid, { item, dates }] of Object.entries(productMap)) {
-      if (dates.length < 3) continue; // Need at least 3 orders to detect a repeating pattern
+      if (dates.length < 3) continue;
       dates.sort((a, b) => a - b);
       const lastDate = dates[dates.length - 1];
       const daysSinceLast = Math.round((today - lastDate) / 86400000);
 
-      // Calculate gaps between consecutive orders
       const gaps = [];
       for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i - 1]) / 86400000);
       const avgCycleDays = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
 
-      // Skip items with meaningless cycles (ordered multiple times same day / too short)
       if (avgCycleDays < 7) continue;
 
-      // Check if the ordering is periodic (consistent gaps)
-      // A pattern is periodic if the standard deviation of gaps is less than 40% of the average
       const variance = gaps.reduce((s, g) => s + Math.pow(g - avgCycleDays, 2), 0) / gaps.length;
       const stdDev = Math.sqrt(variance);
       const isPeriodic = stdDev <= avgCycleDays * 0.4;
 
-      if (!isPeriodic) continue; // Skip items without a clear repeating pattern
+      if (!isPeriodic) continue;
 
       const daysOverdue = daysSinceLast - avgCycleDays;
 
-      // Only suggest if due soon, due now, or overdue
       if (daysOverdue >= -3) {
-        // Skip items already in cart
         if (cartItems.find((c) => c.id === pid)) continue;
 
         const urgency = daysOverdue > 7 ? "Overdue" : daysOverdue > 0 ? "Due now" : "Due soon";
@@ -76,29 +70,38 @@ export default function SensePopup() {
       }
     }
 
-    // Prioritize: most overdue first, then by order count (stronger pattern)
     candidates.sort((a, b) => b.daysOverdue - a.daysOverdue || b.orderCount - a.orderCount);
 
     if (candidates.length === 0) {
-      // Fallback demo item when no order history exists
       candidates.push({
         productId: "p005",
         productName: "Nescafé Gold Blend 200g",
         price: 649,
         thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg",
-        urgency: "Due today",
+        urgency: "Due soon",
         daysOverdue: 0,
         avgCycleDays: 28,
-        daysSinceLast: 28,
+        daysSinceLast: 26,
       });
     }
 
-    // Show popup after a short delay
-    const showTimer = setTimeout(() => {
+    const chosen = candidates[0];
+
+    // Fetch stock info for the chosen product
+    const showTimer = setTimeout(async () => {
       hasShown.current = true;
-      setItem(candidates[0]);
+
+      try {
+        const res = await fetch(`${API}/api/sense/stock/${chosen.productId}`);
+        const data = await res.json();
+        if (data.lowStock) {
+          setStockInfo(data);
+        }
+      } catch (_) {}
+
+      setItem(chosen);
       setVisible(true);
-      dismissTimer.current = setTimeout(() => setVisible(false), 12000);
+      dismissTimer.current = setTimeout(() => setVisible(false), 14000);
     }, 4000);
 
     return () => {
@@ -169,10 +172,20 @@ export default function SensePopup() {
             </div>
           </div>
 
-          <p className="text-xs text-[#565959] mb-3">
+          <p className="text-xs text-[#565959] mb-2">
             You usually reorder this every <strong>{item.avgCycleDays} days</strong>.
             {item.daysSinceLast > 0 && <> Last ordered <strong>{item.daysSinceLast} days</strong> ago.</>}
           </p>
+
+          {/* Low stock warning */}
+          {stockInfo && stockInfo.lowStock && (
+            <div className="flex items-start gap-1.5 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+              <AlertTriangle size={13} className="text-red-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-red-700">
+                Only <strong>{stockInfo.stock} left</strong> in stock! You usually buy this every {item.avgCycleDays} days. Consider buying it early.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button
@@ -195,7 +208,7 @@ export default function SensePopup() {
         <div className="h-0.5 bg-gray-100">
           <div
             className="h-full bg-[#FF9900]"
-            style={{ animation: "shrink 12s linear forwards" }}
+            style={{ animation: "shrink 14s linear forwards" }}
           />
         </div>
         <style>{`@keyframes shrink { from { width: 100%; } to { width: 0%; } }`}</style>

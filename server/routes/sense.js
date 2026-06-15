@@ -1,6 +1,7 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { senseItems } from "../data/mockData.js";
+import { stockInventory, isLowStock, getStockInfo } from "../data/stockInventory.js";
 import { getAllProducts } from "./products.js";
 import { computeProductScore, computeDeliveryRate } from "../utils/trustFormula.js";
 import { computeProductTrustScore, getProductStats } from "../data/customers.js";
@@ -142,6 +143,27 @@ function recompute(profile) {
 router.get("/predictions", (req, res) => {
   const sorted = [...senseItems].sort((a, b) => b.daysOverdue - a.daysOverdue);
   res.json({ predictions: sorted });
+});
+
+// ─── GET /api/sense/stock/:productId ─────────────────────────────────────────
+router.get("/stock/:productId", (req, res) => {
+  const info = getStockInfo(req.params.productId);
+  if (!info) return res.json({ stock: null, lowStock: false });
+  res.json({ stock: info.stock, threshold: info.threshold, lowStock: info.stock <= info.threshold });
+});
+
+// ─── GET /api/sense/stock-batch ──────────────────────────────────────────────
+// Accepts ?ids=p001,p002,p005 and returns stock info for multiple products
+router.get("/stock-batch", (req, res) => {
+  const ids = (req.query.ids || "").split(",").filter(Boolean);
+  const result = {};
+  ids.forEach((id) => {
+    const info = getStockInfo(id);
+    if (info) {
+      result[id] = { stock: info.stock, threshold: info.threshold, lowStock: info.stock <= info.threshold };
+    }
+  });
+  res.json({ stockData: result });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
