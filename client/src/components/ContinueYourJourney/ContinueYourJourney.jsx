@@ -42,9 +42,11 @@ export default function ContinueYourJourney() {
 
     const toItem = (i) => ({ id: i.id, name: i.name, category: i.category || "" });
 
-    const recentOrder = (freshOrders[0]?.items || []).map(toItem);
-    const olderOrders = freshOrders.slice(1, 3).flatMap((o) => (o.items || []).map(toItem));
-    const allPurchasedIds = freshOrders.slice(0, 6).flatMap((o) => (o.items || []).map((i) => i.id));
+    // Use last 3-4 orders as context for recommendations
+    const recentOrders = freshOrders.slice(0, 4);
+    const recentOrder = recentOrders.flatMap((o) => (o.items || []).map(toItem));
+    const olderOrders = freshOrders.slice(4, 7).flatMap((o) => (o.items || []).map(toItem));
+    const allPurchasedIds = freshOrders.slice(0, 8).flatMap((o) => (o.items || []).map((i) => i.id));
 
     if (recentOrder.length === 0) {
       setBundles([]);
@@ -71,7 +73,9 @@ export default function ContinueYourJourney() {
   }, [orders.length]);
 
   const featured = bundles
-    ? [...bundles].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0]
+    ? [...bundles]
+        .filter((b) => (b.confidence || 0) > 80)
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0]
     : null;
 
   const fmt = (n) => (n >= 1000 ? `₹${(n / 1000).toFixed(1)}K` : `₹${n}`);

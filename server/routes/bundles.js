@@ -34,56 +34,107 @@ router.post("/ai", async (req, res) => {
     .map((i) => (productById[i.id]?.category || i.category || "").toLowerCase())
     .filter(Boolean);
 
-  // Keywords that each category group maps to in the catalog
-  const COMPLEMENT_HINTS = [
-    { if: ["audio", "headphone", "speaker", "earphone", "soundbar", "home audio"], suggest: ["mobile", "streaming", "computer", "accessory", "office"] },
-    { if: ["mobile", "phone"], suggest: ["audio", "headphone", "earphone", "accessory", "computer"] },
-    { if: ["tv", "television"], suggest: ["audio", "speaker", "soundbar", "streaming", "smart home"] },
-    { if: ["streaming"], suggest: ["tv", "television", "audio", "smart home"] },
-    { if: ["kitchen", "cookware", "cooking", "appliance"], suggest: ["kitchen", "cookware", "grocery", "home & kitchen"] },
-    { if: ["grocery", "coffee", "food"], suggest: ["kitchen", "cookware", "home & kitchen"] },
-    { if: ["gaming"], suggest: ["gaming", "computer", "monitor", "input", "accessory"] },
-    { if: ["computer", "laptop", "office", "monitor"], suggest: ["computer", "office", "monitor", "accessory", "furniture"] },
-    { if: ["smart home"], suggest: ["smart home", "accessory", "electronics"] },
-    { if: ["beauty", "personal care", "cosmetic"], suggest: ["beauty", "personal care", "fashion", "home"] },
-    { if: ["fashion", "clothing", "apparel"], suggest: ["fashion", "beauty", "sports"] },
-    { if: ["sports", "fitness"], suggest: ["sports", "fitness", "fashion"] },
-    { if: ["book"], suggest: ["books", "office", "stationery"] },
-  ];
-
   const norm = (s) => (s || "").toLowerCase();
 
-  // Score each product: 3 = same category as purchase, 2 = complement, 1 = tangential, 0 = unrelated
+  // Precise prefix-based complement rules — keys are exact category prefixes from the DB
+  // Uses startsWith matching so "electronics > home audio" ONLY matches "electronics > home audio"
+  // and NOT "home & kitchen > furniture" — eliminates false positives from substring matching
+  const COMPLEMENT_RULES = [
+    {
+      purchase: ["electronics > home audio", "electronics > headphones", "electronics > mobile accessories"],
+      complement: ["electronics > mobiles", "electronics > streaming", "electronics > computers", "computers > accessories"],
+    },
+    {
+      purchase: ["electronics > mobiles"],
+      complement: ["electronics > headphones", "electronics > home audio", "electronics > mobile accessories", "electronics > streaming", "computers > accessories"],
+    },
+    {
+      purchase: ["electronics > televisions"],
+      complement: ["electronics > home audio", "electronics > streaming", "electronics > smart home"],
+    },
+    {
+      purchase: ["electronics > streaming"],
+      complement: ["electronics > televisions", "electronics > home audio", "electronics > smart home"],
+    },
+    {
+      purchase: ["electronics > smart home"],
+      complement: ["electronics > smart home", "electronics > accessories", "electronics > lighting"],
+    },
+    {
+      purchase: ["electronics > computers", "computers >"],
+      complement: ["computers > accessories", "computers > input", "computers > monitors", "electronics > accessories", "home & kitchen > furniture"],
+    },
+    {
+      purchase: ["gaming"],
+      complement: ["gaming", "computers > input", "computers > monitors", "computers > accessories"],
+    },
+    {
+      purchase: ["kitchen", "home & kitchen > cook"],
+      complement: ["kitchen", "home & kitchen", "grocery"],
+    },
+    {
+      purchase: ["grocery"],
+      complement: ["kitchen", "home & kitchen > bottles", "home & kitchen > cook"],
+    },
+    {
+      purchase: ["beauty", "beauty > personal care"],
+      complement: ["beauty", "fashion"],
+    },
+    {
+      purchase: ["fashion", "fashion >"],
+      complement: ["fashion", "beauty", "sports"],
+    },
+    {
+      purchase: ["sports"],
+      complement: ["sports", "fashion"],
+    },
+    {
+      purchase: ["books"],
+      complement: ["books", "computers > accessories", "home & kitchen > furniture"],
+    },
+    {
+      purchase: ["home & kitchen"],
+      complement: ["home & kitchen", "beauty"],
+    },
+  ];
+
+  // Match a product category against a list of prefixes (exact prefix-based, not substring)
+  const matchesAny = (cat, prefixes) =>
+    prefixes.some((prefix) => cat === prefix || cat.startsWith(prefix + " >") || cat.startsWith(prefix + ">"));
+
+  // Score each product: 3 = same category, 2 = complement, 0 = unrelated
   const scoreProduct = (p) => {
     const pCat = norm(p.category);
+    // Pure grocery/food djProducts are excluded from non-grocery bundles
+    if (pCat === "grocery" && !recentCatTerms.some((t) => t.startsWith("grocery") || t.startsWith("kitchen"))) return -1;
+
+    // Same category as any recent purchase → score 3 (exact match or direct parent/child)
     for (const term of recentCatTerms) {
-      if (pCat.includes(term) || term.includes(pCat)) return 3;
+      if (pCat === term || pCat.startsWith(term + " >") || term.startsWith(pCat + " >")) return 3;
     }
-    for (const hint of COMPLEMENT_HINTS) {
-      const isRecent = hint.if.some((kw) => recentCatTerms.some((t) => t.includes(kw) || kw.includes(t)));
+
+    // Check complement rules
+    for (const rule of COMPLEMENT_RULES) {
+      const isRecent = recentCatTerms.some((t) => matchesAny(t, rule.purchase));
       if (!isRecent) continue;
-      if (hint.suggest.some((kw) => pCat.includes(kw) || kw.includes(pCat))) return 2;
+      if (matchesAny(pCat, rule.complement)) return 2;
     }
     return 0;
   };
 
   const scored = allProducts
     .map((p) => ({ p, score: scoreProduct(p) }))
+    .filter((x) => x.score >= 2)
     .sort((a, b) => b.score - a.score);
 
-  // Only pass relevant products to the AI — NO unrelated filler
-  // score 3 = same category, score 2 = direct complement
-  const relevantProducts = scored.filter((x) => x.score >= 2).map((x) => x.p);
-  // If very few relevant products, add same-category products from the purchase itself
-  const CATALOG = relevantProducts.length >= 4
-    ? relevantProducts.slice(0, 50)
-    : scored.filter((x) => x.score >= 1).slice(0, 20).map((x) => x.p);
+  // Only pass relevant products to the AI — NO unrelated filler (score must be ≥ 2)
+  const CATALOG = scored.slice(0, 60).map((x) => x.p);
 
   // Compute complement category labels for AI prompt
   const complementLabels = [];
-  for (const hint of COMPLEMENT_HINTS) {
-    const isRecent = hint.if.some((kw) => recentCatTerms.some((t) => t.includes(kw) || kw.includes(t)));
-    if (isRecent) complementLabels.push(...hint.suggest);
+  for (const rule of COMPLEMENT_RULES) {
+    const isRecent = recentCatTerms.some((t) => matchesAny(t, rule.purchase));
+    if (isRecent) complementLabels.push(...rule.complement);
   }
   const complementDesc = [...new Set(complementLabels)].join(", ") || "accessories that pair with the purchased product";
 
@@ -110,12 +161,12 @@ router.post("/ai", async (req, res) => {
   ].filter(Boolean));
 
   const prompt = `You are a smart personal shopping assistant for an Indian e-commerce platform.
-Your job is to suggest product bundles that DIRECTLY complement what the user just bought.
+Your job is to suggest product bundles that complement what the user has been buying recently.
 
-━━━ MOST RECENT ORDER (build ALL recommendations around this ONLY) ━━━
+━━━ RECENT PURCHASES (last 3-4 orders — build recommendations around these) ━━━
 ${recentText}
 
-━━━ PREVIOUSLY PURCHASED (exclude from suggestions) ━━━
+━━━ OLDER PURCHASES (exclude from suggestions) ━━━
 ${olderText}
 ${historyText ? `\n━━━ RECENTLY BROWSED ━━━\n${historyText}` : ""}
 
@@ -123,11 +174,11 @@ ${historyText ? `\n━━━ RECENTLY BROWSED ━━━\n${historyText}` : ""}
 ${catalogText}
 
 ━━━ STRICT RULES ━━━
-1. The catalog above contains ONLY products relevant to what the user bought. Pick ONLY from it.
-2. The correct complement categories for this purchase are: ${complementDesc}
-3. NEVER suggest products from unrelated categories (e.g. if user bought a phone, do NOT suggest kitchen, grocery, fashion, books, or furniture).
-4. Every item in the bundle must have a clear, logical connection to the purchased product.
-5. "reason" must name the exact product they bought and explain the direct connection in one sentence.
+1. The catalog above contains ONLY products relevant to what the user recently bought. Pick ONLY from it.
+2. The correct complement categories for these purchases are: ${complementDesc}
+3. NEVER suggest products from unrelated categories (e.g. if user bought phones/audio, do NOT suggest kitchen, grocery, fashion, or books).
+4. Every item in the bundle must have a clear, logical connection to at least one of their recent purchases.
+5. "reason" must name the specific product(s) they bought and explain the direct connection in one sentence.
 
 ━━━ CATEGORY COMPLEMENT RULES ━━━
 phone / mobile → earbuds, headphones, power bank, USB hub, phone accessories
@@ -142,32 +193,32 @@ smart home → smart bulb, smart plug, Echo Dot
 beauty / personal care → other beauty, skincare, fashion
 sports / fitness → sports gear, fitness accessories
 fashion → other fashion, beauty, sports
-audio (headphones, earbuds)           → phone, streaming, or office accessories
-furniture (chair, desk)               → office or study accessories
-personal care                         → other personal care or home items
-home / cleaning                       → other home organisation items
-
-IMPORTANT: If the user bought a grocery/food item like coffee, recommend KITCHEN appliances — NOT home storage or furniture. A coffee buyer needs a kettle or induction cooktop, not a laundry basket.
 
 Your task:
-1. Look at the most recent order category and apply the complement rules above
-2. Create exactly 2 bundles with a coherent theme each — not a random mix
-3. Each bundle must stay tightly within the correct complement category
+1. Look at ALL recent purchases and find the dominant category/theme
+2. Create exactly 2 bundles that directly complement that theme — tight, coherent, not a random mix
+3. Each bundle must stay strictly within the correct complement categories
 
 Rules:
 - Each bundle: 3–5 product IDs, ONLY exact IDs from the catalog above
 - NEVER include products the user already owns
-- Title must name the specific theme (e.g. "Complete Your Kitchen Setup", "Level Up Your Gaming Den")
-- "reason" must specifically name the product(s) they just bought and explain the direct connection
+- Title must name the specific theme (e.g. "Complete Your Audio Setup", "Level Up Your Gaming Den")
+- "reason" must name the specific product(s) from recent purchases and explain the connection
 - "goal" is one sentence: what practical problem does this bundle solve?
-- "perItemReasons" maps each productId to a one-line reason why that specific item belongs
-- "shoppingContext" is your inference (e.g. "kitchen upgrade", "home office setup", "gaming den")
+- "perItemReasons" maps each productId to a one-line reason why it belongs given the recent purchases
+- "shoppingContext" is your inference (e.g. "audio setup", "home office", "gaming den")
 
-Confidence rubric (be strict — do not inflate):
-- 90–99: Bundle directly completes the ecosystem from the recent order
-- 75–89: Strong match, most items clearly useful given what was just bought
-- 60–74: Moderate match
-- 40–59: Weak, tangential
+━━━ SIMILARITY SCORE (confidence) — calculate strictly ━━━
+The confidence score measures how similar/relevant the bundle is to the user's recent 3-4 orders.
+Score each bundle by asking: "If someone bought [recent purchases], how naturally would they want this bundle?"
+
+- 90–99: Every item directly pairs with a specific recent purchase (e.g. bought JBL speaker → Fire TV Stick + earbuds)
+- 81–89: Most items clearly useful given recent purchases, theme is obvious
+- 70–80: Good match but some items are loosely connected
+- 50–69: Weak connection, could apply to many users generically
+- Below 50: Unrelated
+
+CRITICAL: Only return bundles with confidence ≥ 81. If you cannot build a bundle with confidence ≥ 81 from the available catalog, return an empty bundles array: {"shoppingContext":"...","bundles":[]}
 
 Return ONLY valid JSON, no markdown, no extra text:
 {
@@ -219,13 +270,14 @@ Return ONLY valid JSON, no markdown, no extra text:
 
     const parsed = JSON.parse(text);
 
-    const validIds = new Set(allProducts.map((p) => p.id));
+    // Strict: only allow IDs that were actually in the scored catalog — prevents AI hallucinations
+    const validCatalogIds = new Set(CATALOG.map((p) => p.id));
 
     parsed.bundles = (parsed.bundles || [])
       .map((bundle) => ({
         ...bundle,
         items: (bundle.items || []).filter(
-          (i) => validIds.has(i.productId) && !excludeIds.has(i.productId)
+          (i) => validCatalogIds.has(i.productId) && !excludeIds.has(i.productId)
         ),
       }))
       .filter((b) => b.items.length >= 2);

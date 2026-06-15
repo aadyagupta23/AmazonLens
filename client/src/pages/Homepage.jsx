@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API } from "../utils/format.js";
-import { useSense } from "../contexts/SenseContext.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import SensePopup from "../components/SensePopup.jsx";
 import ContinueYourJourney from "../components/ContinueYourJourney/ContinueYourJourney.jsx";
@@ -49,20 +48,60 @@ const CATEGORIES_GRID = [
 export default function Homepage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [heroSlide, setHeroSlide] = useState(0);
-  const { getRecommendations, senseReady, profile } = useSense();
-  const [senseRecs, setSenseRecs] = useState([]);
+  const [orderRecs, setOrderRecs] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/api/products?limit=8`).then(({ data }) => setProducts(data.products || []));
+    axios.get(`${API}/api/products`).then(({ data }) => {
+      const all = data.products || [];
+      setAllProducts(all);
+      setProducts(all.slice(0, 8));
+    });
   }, []);
 
-  // Fetch Sense recommendations once profile is ready (no maturity gate — always try)
+  // Build "Recommended for You" from recent order categories (no AI, no MongoDB dependency)
   useEffect(() => {
-    if (senseReady) {
-      getRecommendations().then((recs) => { if (recs.length > 0) setSenseRecs(recs); });
-    }
-  }, [senseReady]);
+    if (allProducts.length === 0) return;
+
+    let orders;
+    try { orders = JSON.parse(localStorage.getItem("amz_orders") || "[]"); }
+    catch { orders = []; }
+
+    if (orders.length === 0) return;
+
+    orders.sort((a, b) => new Date(b.placedAt) - new Date(a.placedAt));
+    const recentOrders = orders.slice(0, 4);
+
+    // Build a map of all products by ID so we can resolve categories
+    const productById = {};
+    allProducts.forEach((p) => { productById[p.id] = p; });
+
+    const purchasedIds = new Set();
+    const recentCats = new Set();
+
+    recentOrders.forEach((o) => {
+      (o.items || []).forEach((item) => {
+        purchasedIds.add(item.id);
+        // Prefer DB category over whatever was stored in order
+        const dbCat = productById[item.id]?.category || item.category || "";
+        const top = dbCat.split(" > ")[0].trim().toLowerCase();
+        if (top) recentCats.add(top);
+      });
+    });
+
+    if (recentCats.size === 0) return;
+
+    const recs = allProducts
+      .filter((p) => {
+        if (purchasedIds.has(p.id)) return false;
+        const pTop = (p.category || "").split(" > ")[0].trim().toLowerCase();
+        return recentCats.has(pTop);
+      })
+      .slice(0, 8);
+
+    if (recs.length > 0) setOrderRecs(recs);
+  }, [allProducts]);
 
   useEffect(() => {
     const t = setInterval(() => setHeroSlide((s) => (s + 1) % HERO_SLIDES.length), 5000);
@@ -156,13 +195,13 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* ── 6. RECOMMENDED FOR YOU (Amazon Sense-powered when available) ── */}
+        {/* ── 6. RECOMMENDED FOR YOU (based on recent orders, instant, no AI needed) ── */}
         <div className="bg-white rounded shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h2 className="font-bold text-[#0F1111] text-lg">Recommended for You</h2>
-              {senseRecs.length > 0 && (
-                <span className="text-[10px] bg-[#FF9900]/10 text-[#B7800A] font-bold px-2 py-0.5 rounded-full">SENSE</span>
+              {orderRecs.length > 0 && (
+                <span className="text-[10px] bg-[#FF9900]/10 text-[#B7800A] font-bold px-2 py-0.5 rounded-full">BASED ON YOUR ORDERS</span>
               )}
             </div>
             <button
@@ -172,19 +211,11 @@ export default function Homepage() {
               See all →
             </button>
           </div>
-          {senseRecs.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {senseRecs.slice(0, 8).map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {products.slice(4).map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {(orderRecs.length > 0 ? orderRecs : products.slice(4, 8)).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
         </div>
 
         {/* ── 7. POPULAR SHOPPING LISTS ──
