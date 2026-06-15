@@ -25,14 +25,13 @@ const CAT_MAP = [
   ['computers > monitors',            'monitor'],
   ['computers > input devices',       'input_devices'],
   ['computers > accessories',         'computer_accessories'],
-  // IMPORTANT: "home & kitchen" must come BEFORE bare "kitchen" — substring match order matters
-  ['home & kitchen > furniture',      'furniture'],
-  ['home & kitchen',                  'home'],
   ['kitchen > cookware',              'kitchen'],
   ['kitchen',                         'kitchen'],
   ['grocery',                         'grocery'],
   ['beauty',                          'beauty'],
   ['sports',                          'sports'],
+  ['home & kitchen > furniture',      'furniture'],
+  ['home & kitchen',                  'home'],
   ['books',                           'books'],
   ['fashion',                         'fashion'],
 ];
@@ -122,9 +121,8 @@ const SETUP_REQUIREMENTS = {
   kitchen: {
     name: 'Kitchen Starter Kit', icon: '🍳',
     required: ['kitchen'],
-    optional: [],
+    optional: ['grocery', 'home'],
     tagline: 'Everything you need for a fully equipped kitchen',
-    multiPick: 4,
   },
   smart_home: {
     name: 'Smart Home Setup', icon: '🏠',
@@ -148,7 +146,7 @@ const SETUP_REQUIREMENTS = {
   audio: {
     name: 'Audio Bundle', icon: '🎧',
     required: ['audio'],
-    optional: [],
+    optional: ['phone_accessories'],
     tagline: 'Premium audio for every occasion',
     multiPick: 3,
   },
@@ -162,8 +160,9 @@ const SETUP_REQUIREMENTS = {
   gadget_gift: {
     name: 'Top Electronics Gift Bundle', icon: '🎁',
     required: ['audio', 'streaming'],
-    optional: ['smart_home'],
+    optional: ['smart_home', 'phone_accessories'],
     tagline: 'Best electronics picks for the tech enthusiast',
+    multiPick: 4,
   },
 };
 
@@ -193,13 +192,12 @@ function detectSetupType(query) {
   if (/\btv\b|\btelevision\b/.test(q)) return 'tv';
   if (/gaming/.test(q)) return 'gaming';
   if (/office\s*setup|work\s*(?:from\s*home|setup)|wfh|ergonomic\s*(?:office|desk)/.test(q)) return 'office';
-  if (/\blaptop\b|\bnotebook\b/.test(q)) return 'office'; // laptop → office accessories bundle
   if (/\bphone\b|\bmobile\b|\bsmartphone\b/.test(q)) return 'phone';
   if (/kitchen/.test(q)) return 'kitchen';
-  if (/smart\s*home|smart\s*speaker|smart\s*bulb|voice\s*assistant/.test(q)) return 'smart_home';
+  if (/smart\s*home/.test(q)) return 'smart_home';
   if (/\bfitness\b|\bworkout\b|\bgym\b|\bexercise\b|\bsports?\b/.test(q)) return 'fitness';
   if (/\bstreaming\b|\bentertainment\s*setup/.test(q)) return 'streaming';
-  if (/\bearbuds?\b|\bheadphones?\b|\bsoundbar\b|\bwireless\s+audio\b/.test(q)) return 'audio';
+  if (/\bearbuds?\b|\bheadphones?\b|\bspeakers?\b|\bwireless\s+audio\b/.test(q)) return 'audio';
   if (/\bbeauty\b|\bskincare\b|\bmakeup\b/.test(q)) return 'beauty';
   if (/\bgadget\b|gift\s+for.*(?:tech|gadget|electronic)|best\s+electronics\b/.test(q)) return 'gadget_gift';
   return null;
@@ -274,15 +272,11 @@ function rankBundles(bundles, budget) {
     if (budget) {
       if (a.withinBudget && !b.withinBudget) return -1;
       if (!a.withinBudget && b.withinBudget) return 1;
-      // Both within budget → prefer more complete first, then higher total (maximize spend)
-      if (a.withinBudget && b.withinBudget) {
-        if (b.completeness !== a.completeness) return b.completeness - a.completeness;
-        return b.total - a.total;
-      }
     }
     if (b.completeness !== a.completeness) return b.completeness - a.completeness;
     if (b.avgTrust !== a.avgTrust) return b.avgTrust - a.avgTrust;
-    return b.total - a.total;
+    if (b.savings !== a.savings) return b.savings - a.savings;
+    return a.total - b.total;
   });
 }
 
@@ -339,77 +333,18 @@ function buildTopNBundle(setupType, budget, brandPrefs = []) {
   return { products: selected, total, originalTotal, savings: originalTotal - total, avgTrust, withinBudget: !budget || total <= budget };
 }
 
-// ─── Keyword Fallback Bundle — used when AI fails or returns null ─────────────
-const SEARCH_STOP_WORDS = new Set([
-  'for','the','to','a','an','and','or','under','over','budget','setup','my','best',
-  'good','complete','with','from','buy','need','want','give','get','me','in','is',
-  'are','of','up','at','by','on','its','some','more','less','about','around','max',
-  'top','great','perfect','all','just','please','want','looking','find','show','give',
-  'college','student','person','who','what','which','that','this','these','those',
-]);
-
-function buildKeywordFallbackBundle(query, budget) {
-  const allTerms = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2);
-  const terms = allTerms.filter(t => !SEARCH_STOP_WORDS.has(t) && !/^\d+$/.test(t));
-
-  if (terms.length === 0) return null;
-
-  // Require at least 2 keyword hits (or all terms if only 1 meaningful term)
-  const minScore = Math.min(2, terms.length);
-
-  const scored = CATALOG
-    .map(p => {
-      const haystack = [p.name, p.fullCategory, p.brand, ...p.tags].join(' ').toLowerCase();
-      const score = terms.reduce((acc, t) => acc + (haystack.includes(t) ? 1 : 0), 0);
-      return { ...p, _score: score };
-    })
-    .filter(p => p._score >= minScore && (!budget || p.price <= budget))
-    .sort((a, b) => b._score - a._score || b.trustScore - a.trustScore);
-
-  if (scored.length === 0) return null;
-
-  // Pick up to 5, at most 2 per category to avoid duplicates
-  const catCount = {};
-  const selected = [];
-  let total = 0;
-  for (const p of scored) {
-    if (selected.length >= 5) break;
-    catCount[p.category] = (catCount[p.category] || 0) + 1;
-    if (catCount[p.category] > 2) continue;
-    if (budget && total + p.price > budget) continue;
-    selected.push(p);
-    total += p.price;
-  }
-  if (selected.length === 0) return null;
-
-  const origTotal = selected.reduce((s, p) => s + p.originalPrice, 0);
-  const avgTrust  = Math.round(selected.reduce((s, p) => s + p.trustScore, 0) / selected.length);
-  return {
-    id: 'keyword-bundle',
-    name: 'Curated Bundle',
-    icon: '🛍️',
-    tagline: `Best matches for your search`,
-    products: selected,
-    total,
-    originalTotal: origTotal,
-    savings: origTotal - total,
-    avgTrust,
-    withinBudget: !budget || total <= budget,
-    whyReasons: [`Matched your search criteria`],
-  };
-}
-
-// ─── Groq AI Bundle Generator — full catalog, primary model ───────────────────
+// ─── Groq AI Bundle Generator — full 222-product catalog, primary model ────────
+// Sends the ENTIRE catalog to llama-3.3-70b-versatile so it can semantically
+// understand ANY query and pick real product IDs without hallucination.
 async function generateAIBundle(query, budget, brandPrefs = []) {
   if (!process.env.GROQ_API_KEY) return null;
 
-  const minSpend   = budget ? Math.round(budget * 0.6) : null;
-  const budgetStr  = budget
-    ? `₹${budget.toLocaleString('en-IN')}. MANDATORY: select enough products so their SUM is between ₹${minSpend.toLocaleString('en-IN')} and ₹${budget.toLocaleString('en-IN')}. NEVER return just 1 cheap item when the budget allows a full bundle.`
-    : 'No budget — pick best-quality products regardless of price. Aim for 3–5 premium picks.';
+  const budgetStr = budget
+    ? `₹${budget.toLocaleString('en-IN')} — SUM of all selected prices MUST NOT exceed this`
+    : 'no budget limit — pick best quality regardless of price';
 
-  const brandNote  = brandPrefs.length > 0
-    ? `\nPreferred brands (from order history): ${brandPrefs.map(b => `${b.brand}(${b.count}x)`).join(', ')}`
+  const brandNote = brandPrefs.length > 0
+    ? `\nUser preferred brands (from order history): ${brandPrefs.map(b => `${b.brand}(${b.count}x)`).join(', ')}`
     : '';
 
   const catalogText = buildFullCatalogText(brandPrefs);
@@ -417,30 +352,30 @@ async function generateAIBundle(query, budget, brandPrefs = []) {
   try {
     const completion = await groqCall({
       model: PRIMARY_MODEL,
-      max_tokens: 500,
+      max_tokens: 450,
       temperature: 0.1,
       noFallback: true,
       messages: [
         {
           role: 'system',
-          content: `You are a semantic product bundling engine for an Indian e-commerce site. Your job is to match any natural-language shopping query to real products from the catalog and build a coherent, value-maximizing bundle.
+          content: `You are a precise, zero-hallucination inventory clustering and semantic bundling engine for an Indian e-commerce site.
 
-RULES (strictly follow all):
-1. ONLY use IDs that exist in the catalog — never invent IDs or product names.
-2. Understand the INTENT, not just keywords:
-   - "cinema room" / "home theatre" → TV + soundbar/audio + streaming device
-   - "office" / "wfh" / "work from home" → monitor + keyboard + mouse
-   - "gaming" → gaming monitor + headset + peripherals (NO food/grocery)
-   - "kitchen" / "cooking" → cookware, appliances (NO food, NO drinks, NO grocery)
-   - "skincare" / "beauty" → beauty and personal care products
-   - "gift for gadget lover" → best electronics sorted by trust score
-   - "phone bundle" → smartphone + earbuds/accessories
-   - "fitness" / "workout" → sports/fitness equipment + audio
-3. BUDGET: SUM of all selected product prices MUST be ≤ budget.
-4. BUDGET UTILIZATION: Aim to spend 60%–100% of the budget. If budget = ₹80,000, total should be ₹48,000–₹80,000. Pick higher-quality or more products to fill the budget — do NOT return a bundle worth <50% of the budget unless the catalog truly has nothing better.
-5. Select 3–5 cohesive products serving the SAME use-case.
-6. If no exact match, pick the closest available products from the catalog.
-Respond with JSON ONLY — no markdown, no explanation outside the JSON.`,
+CRITICAL RULES:
+1. ONLY use product IDs that appear in the catalog. NEVER invent or hallucinate IDs or names.
+2. Understand semantic INTENT of the query — not just keywords:
+   "cinema room" / "home theatre" → TV + audio + streaming device
+   "wfh" / "work from home" / "office" → monitor + keyboard + mouse/accessories
+   "gaming" → gaming monitor + headset + peripherals
+   "skincare" / "beauty routine" → beauty/skincare products
+   "gift for gadget lover" → best electronics by trust score
+   "pasta" / "cooking" / "kitchen" → kitchen/cookware products
+   "phone bundle" → smartphone + earphones/accessories
+   "smart home" → smart devices + lighting/hub
+3. Budget: if specified, SUM of all selected prices MUST be ≤ budget. Drop items if needed.
+4. No budget: pick the absolute best-quality matches regardless of price.
+5. Select 2–5 products that form a COHESIVE bundle serving the SAME use-case.
+6. If exact match is unavailable, pick the closest available products.
+Respond with JSON ONLY — no markdown, no extra text.`,
         },
         {
           role: 'user',
@@ -450,8 +385,8 @@ Budget: ${budgetStr}${brandNote}
 Full product catalog (id|name|₹price|brand|category):
 ${catalogText}
 
-Return JSON only:
-{"icon":"<emoji>","title":"<bundle name ≤5 words>","tagline":"<1 sentence>","selectedIds":["id1","id2",...],"whyReasons":["reason1","reason2"]}`,
+Return JSON:
+{"icon":"<emoji>","title":"<≤5 words>","tagline":"<1 sentence>","selectedIds":["id1","id2",...],"whyReasons":["reason1","reason2"]}`,
         },
       ],
     });
@@ -465,33 +400,12 @@ Return JSON only:
 
     if (selectedProducts.length === 0) return null;
 
-    // Enforce budget: drop lowest-trust items until within budget
+    // Server-side budget enforcement: drop lowest-trust items until within budget
     if (budget) {
       selectedProducts.sort((a, b) => b.trustScore - a.trustScore);
       while (selectedProducts.length > 1 &&
              selectedProducts.reduce((s, p) => s + p.price, 0) > budget) {
         selectedProducts.pop();
-      }
-    }
-
-    // Budget fill: if total < 60% of budget, add more products from same categories
-    if (budget && selectedProducts.length < 5) {
-      const usedIds  = new Set(selectedProducts.map(p => p.id));
-      const usedCats = new Set(selectedProducts.map(p => p.category));
-      let runningTotal = selectedProducts.reduce((s, p) => s + p.price, 0);
-
-      const extras = CATALOG
-        .filter(p => usedCats.has(p.category) && !usedIds.has(p.id))
-        .sort((a, b) => b.trustScore - a.trustScore);
-
-      for (const p of extras) {
-        if (selectedProducts.length >= 5) break;
-        if (runningTotal + p.price <= budget) {
-          selectedProducts.push(p);
-          usedIds.add(p.id);
-          runningTotal += p.price;
-        }
-        if (runningTotal >= budget * 0.6) break;
       }
     }
 
@@ -520,10 +434,7 @@ Return JSON only:
 
 // ─── Keyword Search ───────────────────────────────────────────────────────────
 function keywordSearch(query, budget = null) {
-  const terms = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/)
-    .filter(t => t.length > 2 && !SEARCH_STOP_WORDS.has(t));
-
-  if (terms.length === 0) return [];
+  const terms = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter((t) => t.length > 1);
 
   return CATALOG
     .map((p) => {
@@ -614,22 +525,12 @@ router.post('/', async (req, res) => {
     if (!bundle && !closestAlternative) {
       bundle = await generateAIBundle(query, budget, brandPrefs);
       if (bundle) whyReasons = bundle.whyReasons || [];
-      // AI also failed → keyword fallback
-      if (!bundle) {
-        bundle = buildKeywordFallbackBundle(query, budget);
-        if (bundle) whyReasons = bundle.whyReasons || [];
-      }
     }
 
   } else {
     // ── AI path: any natural-language query — Groq sees full catalog ──────────
     bundle = await generateAIBundle(query, budget, brandPrefs);
     if (bundle) whyReasons = bundle.whyReasons || [];
-    // AI failed (rate limit, etc.) → keyword fallback so we ALWAYS return something
-    if (!bundle) {
-      bundle = buildKeywordFallbackBundle(query, budget);
-      if (bundle) whyReasons = bundle.whyReasons || [];
-    }
   }
 
   // Individual keyword results (separate from bundle, no duplication)
