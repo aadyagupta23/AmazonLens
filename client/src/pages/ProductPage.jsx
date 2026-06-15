@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API, formatPrice } from "../utils/format.js";
+import { getSustainabilityData } from "../utils/sustainability.js";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useWishlist } from "../contexts/WishlistContext.jsx";
 import { useHistory } from "../contexts/HistoryContext.jsx";
@@ -181,17 +182,9 @@ export default function ProductPage() {
       (o.items || []).some((i) => i.id === productId && i.returnStatus !== "Returned")
   );
 
-  // Build sustainability panel data from real company eco object (only used when ecoScore > 80)
-  const companyEco = trustData?.company?.eco;
-  const companyEcoScore = trustData?.company?.ecoScore ?? 0;
-  const sustainData = companyEco ? {
-    score:           companyEcoScore,
-    carbonFootprint: Math.round((companyEco.carbonReductionTarget + companyEco.renewableEnergyPct) / 2),
-    recyclability:   companyEco.recyclablePackagingPct,
-    packagingImpact: companyEco.recyclablePackagingPct,
-    ethicalSourcing: companyEco.supplyChainScore,
-    certified:       (companyEco.certifications?.length ?? 0) >= 2,
-  } : null;
+  // Sustainability data computed from company eco attributes (same source as Greener Choice badge)
+  const sustainData = getSustainabilityData(productId);
+  const sustainEcoLabel = trustData?.company?.ecoLabel ?? null;
 
   // Live rating computed from all loaded reviews (updates when new review submitted)
   const liveRating = dbReviews.length > 0
@@ -357,8 +350,8 @@ export default function ProductPage() {
               )}
             </div>
 
-            {showOnProduct && companyEcoScore >= 80 && sustainData && (
-              <SustainabilityPanel data={sustainData} ecoLabel={trustData?.company?.ecoLabel} />
+            {showOnProduct && sustainData.score > 80 && (
+              <SustainabilityPanel data={sustainData} ecoLabel={sustainEcoLabel} />
             )}
 
             {/* ── AMAZON SENSE MATCH ── */}

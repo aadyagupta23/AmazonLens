@@ -140,7 +140,7 @@ export default function ProductCard({ product, greenerChoice = false }) {
         {greenerChoice && (
           <div className="absolute bottom-2 left-2 flex items-center gap-0.5 bg-[#E8F5E9] text-[#1B5E20] text-[10px] font-bold px-1.5 py-0.5 rounded">
             <Leaf size={9} />
-            Greener Choice
+            Green Choice
           </div>
         )}
       </div>
