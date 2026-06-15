@@ -112,7 +112,9 @@ export default function ContinueYourJourney() {
   const productCount = resolvedProducts.length;
   const { title, reason, confidence, tag, id } = featured;
 
-  const handleExplore = () => navigate(`/bundles/${id}`);
+  const handleExplore = () => navigate(`/bundles/${id}`, {
+    state: { aiBundle: featured, resolvedProducts: resolvedProducts },
+  });
 
   return (
     <div className="bg-white rounded shadow-sm p-5">
@@ -163,7 +165,7 @@ export default function ContinueYourJourney() {
             <strong className="text-[#0F1111]">{fmt(totalBudget)}</strong> est. total
           </span>
           <button
-            onClick={(e) => { e.stopPropagation(); handleExplore(); }}
+            onClick={(e) => { e.stopPropagation(); navigate(`/bundles/${id}`, { state: { aiBundle: featured, resolvedProducts } }); }}
             className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold px-6 py-3 rounded-md flex items-center gap-2"
           >
             Explore Bundle

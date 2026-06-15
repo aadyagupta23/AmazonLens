@@ -273,9 +273,15 @@ function enrichPlan(plan) {
   const stats = getPlanStats(plan);
   const health = calculateHealthScore(plan);
 
+  const enrichedCart = (plan.cart || []).map((entry) => ({
+    ...entry,
+    product: getProduct(entry.productId) || { id: entry.productId, name: entry.productId, price: 0 },
+  }));
+
   return {
     ...plan,
     items: enrichedItems,
+    cart: enrichedCart,
     stats,
     health,
   };
@@ -370,8 +376,9 @@ router.post("/create", (req, res) => {
     status: "active", // active | completed | archived
     members: [{ name: createdBy || "You", role: "owner", color: "#FF9900", joinedAt: now() }],
     items: [],
+    cart: [], // joint cart: [{ productId, addedBy, quantity, addedAt }]
     activity: [{ id: generateId(), action: "Plan created", by: createdBy || "You", at: now() }],
-    expenses: [], // { id, productId, amount, splitType, splits: [{member, amount, paid}] }
+    expenses: [],
     notifications: [],
     createdAt: now(),
   };
@@ -1252,4 +1259,67 @@ ${catalogue}`,
 
   res.json({ suggestions: scored, aiPowered: false });
 });
+
+// ─── POST /api/co-planner/:planId/cart ───────────────────────────────────────
+// Add or increment a product in the joint cart
+router.post("/:planId/cart", (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+  const { productId, memberName, quantity = 1 } = req.body;
+  if (!productId || !memberName) return res.status(400).json({ error: "productId and memberName required" });
+
+  if (!plan.cart) plan.cart = [];
+  const existing = plan.cart.find((i) => i.productId === productId);
+  if (existing) {
+    existing.quantity = (existing.quantity || 1) + quantity;
+  } else {
+    plan.cart.push({ productId, addedBy: memberName, quantity, addedAt: now() });
+  }
+  addActivity(plan, `${memberName} added to joint cart`, memberName);
+  savePlans();
+
+  const enriched = enrichPlan(plan);
+  if (io) io.to(`coplan:${plan.id}`).emit("coplan:cart-updated", { planId: plan.id, cart: enriched.cart });
+  res.json({ plan: enriched });
+});
+
+// ─── PATCH /api/co-planner/:planId/cart/:productId ───────────────────────────
+// Update quantity (0 = remove)
+router.patch("/:planId/cart/:productId", (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+  const { productId } = req.params;
+  const { quantity, memberName } = req.body;
+
+  if (!plan.cart) plan.cart = [];
+  if (quantity <= 0) {
+    plan.cart = plan.cart.filter((i) => i.productId !== productId);
+    addActivity(plan, `${memberName} removed item from joint cart`, memberName);
+  } else {
+    const item = plan.cart.find((i) => i.productId === productId);
+    if (item) item.quantity = quantity;
+  }
+  savePlans();
+
+  const enriched = enrichPlan(plan);
+  if (io) io.to(`coplan:${plan.id}`).emit("coplan:cart-updated", { planId: plan.id, cart: enriched.cart });
+  res.json({ plan: enriched });
+});
+
+// ─── DELETE /api/co-planner/:planId/cart ─────────────────────────────────────
+// Clear the entire joint cart (after checkout)
+router.delete("/:planId/cart", (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+  const { memberName } = req.body;
+
+  plan.cart = [];
+  addActivity(plan, `${memberName} cleared the joint cart`, memberName);
+  savePlans();
+
+  const enriched = enrichPlan(plan);
+  if (io) io.to(`coplan:${plan.id}`).emit("coplan:cart-updated", { planId: plan.id, cart: [] });
+  res.json({ plan: enriched });
+});
+
 export default router;

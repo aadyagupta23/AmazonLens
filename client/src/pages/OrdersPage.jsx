@@ -24,7 +24,7 @@ function WitnessSignup({ item, onDone }) {
   const { user } = useAuth();
   const [wouldBuyAgain, setWouldBuyAgain] = useState(true);
   const alreadyLive = witnessInfo?.productId === item.id;
-  const city = user.city || "";
+  const city = user?.city || "";
 
   if (alreadyLive) {
     return (
@@ -49,7 +49,7 @@ function WitnessSignup({ item, onDone }) {
 
   const handleSubmit = () => {
     goOnline({
-      name: user.name,
+      name: user?.name,
       city,
       productId: item.id,
       productName: item.name,
@@ -63,7 +63,7 @@ function WitnessSignup({ item, onDone }) {
     <div className="mt-4 border border-[#FFD814] rounded-xl p-4 bg-[#FFFBEA]">
       <p className="text-xs font-semibold text-[#0F1111] mb-1">Ready to go live</p>
       <p className="text-xs text-[#565959] mb-3">
-        As <strong>{user.name}</strong> · {city}
+        As <strong>{user?.name}</strong> · {city}
       </p>
       <div className="flex gap-3 items-end flex-wrap">
         <div>

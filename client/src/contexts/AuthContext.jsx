@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext(null);
 
@@ -16,14 +16,9 @@ function loadSession() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const session = loadSession();
-    if (session) setUser(session);
-    setLoading(false);
-  }, []);
+  // Initialize synchronously so there's no first-render flash with wrong user
+  const [user, setUser] = useState(() => loadSession());
+  const [loading, setLoading] = useState(false);
 
   const login = async (email, password) => {
     const users = loadUsers();
@@ -60,10 +55,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
   };
 
-  const effectiveUser = user || { name: "Arjun Kumar", email: "arjun@example.com", city: "" };
-
   return (
-    <AuthContext.Provider value={{ user: effectiveUser, realUser: user, token: null, login, signup, logout, updateProfile, loading }}>
+    <AuthContext.Provider value={{ user, realUser: user, token: null, login, signup, logout, updateProfile, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -43,8 +43,8 @@ export default function WitnessPortal() {
   const handleGoOnline = () => {
     if (!selectedProduct || !user?.city) return;
     goOnline({
-      name: user.name,
-      city: user.city,
+      name: user?.name,
+      city: user?.city,
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       monthsOwned: Number(form.monthsOwned),
@@ -98,11 +98,11 @@ export default function WitnessPortal() {
           {user?.city ? (
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-center gap-3">
               <div className="w-9 h-9 bg-[#131921] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                {user.name?.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                {user?.name?.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0F1111]">{user.name}</p>
-                <p className="text-xs text-[#565959]">{user.city}</p>
+                <p className="text-sm font-semibold text-[#0F1111]">{user?.name}</p>
+                <p className="text-xs text-[#565959]">{user?.city}</p>
               </div>
               <Link to="/account" className="ml-auto text-xs text-[#007185] hover:underline">Edit</Link>
             </div>

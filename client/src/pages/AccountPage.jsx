@@ -17,7 +17,7 @@ export default function AccountPage() {
     }
   }, [hash]);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileDraft, setProfileDraft] = useState({ name: user.name, city: user.city || "", phone: user.phone || "" });
+  const [profileDraft, setProfileDraft] = useState({ name: user?.name || "", city: user?.city || "", phone: user?.phone || "" });
 
   const saveProfile = () => {
     updateProfile({ name: profileDraft.name.trim(), city: profileDraft.city.trim(), phone: profileDraft.phone.trim() });
@@ -37,7 +37,7 @@ export default function AccountPage() {
           </div>
           {!editingProfile ? (
             <button
-              onClick={() => { setProfileDraft({ name: user.name, city: user.city || "", phone: user.phone || "" }); setEditingProfile(true); }}
+              onClick={() => { setProfileDraft({ name: user?.name, city: user?.city || "", phone: user?.phone || "" }); setEditingProfile(true); }}
               className="flex items-center gap-1.5 text-sm text-[#007185] hover:underline"
             >
               <Pencil size={13} /> Edit
@@ -57,9 +57,9 @@ export default function AccountPage() {
         {!editingProfile ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: "Full name",    value: user.name },
-              { label: "City",         value: user.city  || <span className="text-[#CC0C39] text-xs">Not set — required for WitnessPanel</span> },
-              { label: "Phone",        value: user.phone || <span className="text-[#999] text-xs">Not set</span> },
+              { label: "Full name",    value: user?.name },
+              { label: "City",         value: user?.city  || <span className="text-[#CC0C39] text-xs">Not set — required for WitnessPanel</span> },
+              { label: "Phone",        value: user?.phone || <span className="text-[#999] text-xs">Not set</span> },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-xs text-[#565959] mb-0.5">{label}</p>
@@ -198,7 +198,7 @@ export default function AccountPage() {
           <div className="flex items-center justify-between py-3 border-b border-[#F0F0F0]">
             <div>
               <p className="text-sm font-medium text-[#0F1111]">Email address</p>
-              <p className="text-xs text-[#565959]">{user.email}</p>
+              <p className="text-xs text-[#565959]">{user?.email}</p>
             </div>
             <span className="text-xs text-[#007185]">Managed locally</span>
           </div>
@@ -212,13 +212,13 @@ export default function AccountPage() {
           <div className="flex items-center justify-between py-3">
             <div>
               <p className="text-sm font-medium text-[#0F1111]">Mobile number</p>
-              <p className="text-xs text-[#565959]">{user.phone || "Not added"}</p>
+              <p className="text-xs text-[#565959]">{user?.phone || "Not added"}</p>
             </div>
             <button
-              onClick={() => { setProfileDraft({ name: user.name, city: user.city || "", phone: user.phone || "" }); setEditingProfile(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              onClick={() => { setProfileDraft({ name: user?.name, city: user?.city || "", phone: user?.phone || "" }); setEditingProfile(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               className="text-xs text-[#007185] hover:underline"
             >
-              {user.phone ? "Edit" : "Add"}
+              {user?.phone ? "Edit" : "Add"}
             </button>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function AccountPage() {
       {/* Sign out */}
       {realUser && (
         <div className="bg-white border border-[#DDD] rounded p-4">
-          <p className="text-sm text-[#0F1111] mb-2">Signed in as <strong>{user.name}</strong> ({user.email})</p>
+          <p className="text-sm text-[#0F1111] mb-2">Signed in as <strong>{user?.name}</strong> ({user?.email})</p>
           <button
             onClick={() => { logout(); navigate("/"); }}
             className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline"

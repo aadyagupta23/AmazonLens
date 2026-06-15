@@ -222,6 +222,40 @@ export function CoPlannerProvider({ children }) {
     }
   }, [memberName]);
 
+  // ── Joint cart helpers ────────────────────────────────────────────────────
+  const addToJointCart = useCallback(async (planId, productId, quantity = 1) => {
+    const res = await fetch(`${API}/api/co-planner/${planId}/cart`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, memberName, quantity }),
+    });
+    const data = await res.json();
+    if (data.plan) setActivePlan(data.plan);
+    return data;
+  }, [memberName]);
+
+  const updateJointCartQty = useCallback(async (planId, productId, quantity) => {
+    const res = await fetch(`${API}/api/co-planner/${planId}/cart/${productId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity, memberName }),
+    });
+    const data = await res.json();
+    if (data.plan) setActivePlan(data.plan);
+    return data;
+  }, [memberName]);
+
+  const clearJointCart = useCallback(async (planId) => {
+    const res = await fetch(`${API}/api/co-planner/${planId}/cart`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberName }),
+    });
+    const data = await res.json();
+    if (data.plan) setActivePlan(data.plan);
+    return data;
+  }, [memberName]);
+
   // ── Socket.IO: real-time sync for co-plan purchases ───────────────────────
   const joinedRoomsRef = useRef(new Set());
 
@@ -256,9 +290,18 @@ export function CoPlannerProvider({ children }) {
       });
     };
 
+    const handleCartUpdated = (data) => {
+      setActivePlan((prev) => {
+        if (!prev || prev.id !== data.planId) return prev;
+        return { ...prev, cart: data.cart };
+      });
+    };
+
     socket.on("coplan:item-purchased", handleItemPurchased);
+    socket.on("coplan:cart-updated", handleCartUpdated);
     return () => {
       socket.off("coplan:item-purchased", handleItemPurchased);
+      socket.off("coplan:cart-updated", handleCartUpdated);
     };
   }, []);
 
@@ -280,6 +323,9 @@ export function CoPlannerProvider({ children }) {
       dashboardResetKey,
       increaseQuantity,
       markPurchased,
+      addToJointCart,
+      updateJointCartQty,
+      clearJointCart,
       showPlanPicker,
       pendingProduct,
       lastAddedProductId,

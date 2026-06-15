@@ -501,7 +501,7 @@ function PlansDashboard({ plans, onCreated, onOpenPlan, onDeletePlan, currentUse
 }
 
 // ─── PlanItem ─────────────────────────────────────────────────────────────────
-function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemove, onComment, onVote, onMoveToCart, onMarkPurchased, onUpdateQuantity, index, onDragStart, onDragOver, onDrop, isDragging }) {
+function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemove, onComment, onVote, onMoveToCart, onAddToJointCart, onMarkPurchased, onUpdateQuantity, index, onDragStart, onDragOver, onDrop, isDragging }) {
   const p = item.product;
   if (!p || !p.name) return null; // only hide if truly no data at all
 
@@ -631,6 +631,13 @@ function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemo
       {/* Vote + Delete */}
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <button
+          onClick={() => onAddToJointCart(item.productId)}
+          className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-[#007185] hover:text-white hover:bg-[#007185] border border-[#007185] rounded transition-colors font-bold"
+          title="Add to joint cart"
+        >
+          <ShoppingCart size={11} /> Cart
+        </button>
+        <button
           onClick={() => onVote(item.productId, "up")}
           className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-gray-500 hover:text-[#FF9900] hover:bg-amber-50 rounded transition-colors"
           title="Vote up"
@@ -694,7 +701,7 @@ export default function CoPlannerPage() {
   const joinToken = searchParams.get("join");
 
   const { user } = useAuth();
-  const { plans: trackedPlans, trackPlan, loadPlan, addToPlan, memberName, deletePlan, dashboardResetKey, activePlan, setActivePlan } = useCoPlanner();
+  const { plans: trackedPlans, trackPlan, loadPlan, addToPlan, memberName, deletePlan, dashboardResetKey, activePlan, setActivePlan, addToJointCart, updateJointCartQty, clearJointCart } = useCoPlanner();
   const { addToCart } = useCart();
   const { recordEvent } = useSense();
 
@@ -1233,6 +1240,7 @@ export default function CoPlannerPage() {
                   onRemove={removeItem}
                   onVote={voteItem}
                   onMoveToCart={moveItemToCart}
+                  onAddToJointCart={(productId) => addToJointCart(plan.id, productId)}
                   onMarkPurchased={markPurchased}
                   onUpdateQuantity={updateQuantity}
                   onDragStart={handleDragStart}
@@ -1362,6 +1370,69 @@ export default function CoPlannerPage() {
           </div>
         </div>
       </div>
+
+      {/* ── JOINT CART ─────────────────────────────────────────────────── */}
+      {plan && (plan.cart || []).length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#DDD] shadow-2xl">
+          <div className="max-w-[1500px] mx-auto px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={16} className="text-[#FF9900]" />
+                <span className="font-bold text-[#0F1111] text-sm">Joint Cart</span>
+                <span className="bg-[#FF9900] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {(plan.cart || []).reduce((s, i) => s + i.quantity, 0)} items
+                </span>
+                <span className="text-xs text-[#565959]">
+                  ₹{(plan.cart || []).reduce((s, i) => s + (i.product?.price || 0) * i.quantity, 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    (plan.cart || []).forEach((i) => {
+                      for (let q = 0; q < i.quantity; q++) addToCart(i.product);
+                    });
+                    await clearJointCart(plan.id);
+                  }}
+                  className="flex items-center gap-1.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] font-bold text-xs px-4 py-2 rounded-lg border border-[#FFA41C]"
+                >
+                  <ShoppingCart size={13} /> Checkout Joint Cart
+                </button>
+                <button
+                  onClick={() => clearJointCart(plan.id)}
+                  className="text-xs text-[#CC0C39] hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {(plan.cart || []).map((entry) => (
+                <div key={entry.productId} className="flex-shrink-0 flex items-center gap-2 bg-[#F7F8F8] rounded-lg border border-[#DDD] px-3 py-2 min-w-[180px]">
+                  <img
+                    src={entry.product?.thumbnail}
+                    alt={entry.product?.name}
+                    className="w-10 h-10 object-contain rounded bg-white border border-[#EEE]"
+                    onError={(e) => { e.target.src = "https://placehold.co/40x40/EAEDED/131921?text=?"; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-[#0F1111] line-clamp-1">{entry.product?.name}</p>
+                    <p className="text-[10px] text-[#565959]">by {entry.addedBy}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <button onClick={() => updateJointCartQty(plan.id, entry.productId, entry.quantity - 1)} className="w-5 h-5 rounded border border-[#DDD] flex items-center justify-center text-xs hover:bg-gray-100">−</button>
+                      <span className="text-xs font-bold w-4 text-center">{entry.quantity}</span>
+                      <button onClick={() => updateJointCartQty(plan.id, entry.productId, entry.quantity + 1)} className="w-5 h-5 rounded border border-[#DDD] flex items-center justify-center text-xs hover:bg-gray-100">+</button>
+                    </div>
+                  </div>
+                  <button onClick={() => updateJointCartQty(plan.id, entry.productId, 0)} className="text-[#999] hover:text-[#CC0C39]">
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invite Modal */}
       {showInvite && <InviteModal planId={plan.id} onClose={() => setShowInvite(false)} />}

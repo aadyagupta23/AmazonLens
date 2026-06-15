@@ -115,7 +115,7 @@ export default function CheckoutPage() {
         fetch(`${API}/api/co-planner/${planId}/checkout-mark`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productIds, memberName: user.name }),
+          body: JSON.stringify({ productIds, memberName: user?.name }),
         }).catch(() => {});
       });
     }

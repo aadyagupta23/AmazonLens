@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import ProductCard from "../components/ProductCard.jsx";
 import { API } from "../utils/format.js";
 import { useCart } from "../contexts/CartContext.jsx";
@@ -80,13 +80,16 @@ function AddonCard({ product, onAdd, added }) {
 export default function BundleDetailPage() {
   const { bundleId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { addToCart } = useCart();
 
-  const [productMap, setProductMap] = useState({});
+  // Seed productMap instantly from passed products so the page renders without waiting for fetch
+  const seedMap = {};
+  (location.state?.resolvedProducts || []).forEach((p) => { seedMap[p.id] = p; });
+
+  const [productMap, setProductMap] = useState(seedMap);
   const [staticBundles, setStaticBundles] = useState([]);
-  // Track which add-ons have been added this session (for button feedback)
   const [addedAddons, setAddedAddons] = useState({});
-  // Toast state for "Add Entire Setup" confirmation
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
@@ -102,23 +105,22 @@ export default function BundleDetailPage() {
     }).catch(() => {});
   }, []);
 
-  // Check AI bundles from localStorage first, then fall back to server data
-  const rawBundle = staticBundles.find((b) => b.id === bundleId) || (() => {
-    try {
-      const ai = JSON.parse(localStorage.getItem("amz_ai_bundles") || "[]");
-      const found = ai.find((b) => b.id === bundleId);
-      if (!found) return null;
-      const resolvedPrices = (found.items || [])
+  // Priority: router state (from ContinueYourJourney) → static bundles
+  const rawBundle = (() => {
+    // 1. AI bundle passed via navigation state
+    const passed = location.state?.aiBundle;
+    if (passed && passed.id === bundleId) {
+      const resolvedPrices = (passed.items || [])
         .map((i) => productMap[i.productId])
         .filter(Boolean);
       const total = resolvedPrices.reduce((s, p) => s + p.price, 0);
       return {
-        id: found.id,
-        name: found.title,
-        tagline: found.reason,
-        goal: found.goal || null,
-        products: (found.items || []).map((i) => i.productId),
-        perItemReasons: found.perItemReasons || {},
+        id: passed.id,
+        name: passed.title,
+        tagline: passed.reason,
+        goal: passed.goal || null,
+        products: (passed.items || []).map((i) => i.productId),
+        perItemReasons: passed.perItemReasons || {},
         totalPrice: total,
         originalTotal: total,
         savings: 0,
@@ -126,10 +128,12 @@ export default function BundleDetailPage() {
         missingItems: [],
         suggestedAddons: [],
         isAiBundle: true,
-        tag: found.tag,
-        confidence: found.confidence,
+        tag: passed.tag,
+        confidence: passed.confidence,
       };
-    } catch { return null; }
+    }
+    // 2. Static curated bundles from server
+    return staticBundles.find((b) => b.id === bundleId) || null;
   })();
 
   const bundle = rawBundle;
