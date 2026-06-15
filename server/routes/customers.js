@@ -76,7 +76,7 @@ router.get("/seller/:sellerName", (req, res) => {
 // GET /api/customers/reviews/:productId — paginated reviews from customer DB
 router.get("/reviews/:productId", (req, res) => {
   const page  = Math.max(1, parseInt(req.query.page)  || 1);
-  const limit = Math.min(50, parseInt(req.query.limit) || 10);
+  const limit = Math.min(200, parseInt(req.query.limit) || 10);
   res.json(getProductReviews(req.params.productId, page, limit));
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API, formatPrice } from "../utils/format.js";
@@ -27,15 +27,15 @@ const QTY_OPTIONS = [1, 2, 3, 4, 5];
 export default function ProductPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
-  const { toggle: toggleWishlist, isInWishlist } = useWishlist();
-  const { addToHistory } = useHistory();
+  const { addToCart, items: cartItems } = useCart();
+  const { toggle: toggleWishlist, isInWishlist, wishlist } = useWishlist();
+  const { addToHistory, history } = useHistory();
   const { saveReview, hasReviewed } = useReviews();
   const { user: authUser, realUser } = useAuth();
   const { orders } = useOrders();
   const { plans: coPlannerPlans, startAddToPlan } = useCoPlanner();
   const { showOnProduct } = useSustainability();
-  const { recordEvent, getProductMatch } = useSense();
+  const { recordEvent, setProductAiScore } = useSense();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -47,10 +47,11 @@ export default function ProductPage() {
   const [userReturnCount, setUserReturnCount] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
   const [dnaMatch, setDnaMatch] = useState(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const matchCalledFor = useRef(null);
   const [dbReviews, setDbReviews] = useState([]);
-  const [reviewsTotal, setReviewsTotal] = useState(0);
-  const [reviewsPage, setReviewsPage] = useState(1);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newReviews, setNewReviews] = useState([]);
   const [reviewForm, setReviewForm] = useState({ name: "", email: "", password: "", rating: 0, hoverRating: 0, title: "", body: "" });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
@@ -58,16 +59,13 @@ export default function ProductPage() {
   const [shareCopied, setShareCopied] = useState(false);
   const [reviewSearch, setReviewSearch] = useState("");
 
-  const fetchReviews = async (pid, page = 1) => {
+  const fetchReviews = async (pid) => {
     setReviewsLoading(true);
     try {
-      const { data } = await axios.get(`${API}/api/customers/reviews/${pid}?page=${page}&limit=10`);
-      if (page === 1) setDbReviews(data.reviews);
-      else setDbReviews((prev) => [...prev, ...data.reviews]);
-      setReviewsTotal(data.total);
-      setReviewsPage(page);
-    } catch (err) {
-      console.warn("Reviews fetch failed:", err?.message);
+      const { data } = await axios.get(`${API}/api/customers/reviews/${pid}?page=1&limit=200`);
+      setDbReviews(data.reviews || []);
+    } catch {
+      // fall back to product.reviews already in state
     } finally {
       setReviewsLoading(false);
     }
@@ -89,7 +87,15 @@ export default function ProductPage() {
   };
 
   useEffect(() => {
+    // Reset all stale state immediately so we never show previous product's data
     setLoading(true);
+    setProduct(null);
+    setTrustData(null);
+    setDbReviews([]);
+    setNewReviews([]);
+    setDnaMatch(null);
+    setFetchError(false);
+
     axios
       .get(`${API}/api/products/${productId}`)
       .then(({ data }) => {
@@ -100,8 +106,8 @@ export default function ProductPage() {
         const pid = data.product.id;
         const savedReturns = JSON.parse(localStorage.getItem(`returns_${pid}`) || "[]");
         setUserReturnCount(savedReturns.length);
+        fetchReviews(pid);
         fetchSellerTrust(pid, savedReturns.length);
-        fetchReviews(pid, 1);
       })
       .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
@@ -110,12 +116,71 @@ export default function ProductPage() {
       if (product) recordEvent("view", product);
     }, [product?.id]);
 
-  // Fetch Amazon Sense match score
+  // Reset match state when navigating to a new product
   useEffect(() => {
-    if (product) {
-      getProductMatch(product).then((data) => { if (data) setDnaMatch(data); });
-    }
+    matchCalledFor.current = null;
+    setDnaMatch(null);
   }, [product?.id]);
+
+  // Fetch Amazon Sense match score — fires once per product after TrustLens settles
+  useEffect(() => {
+    if (!product || trustAnalyzing) return;
+    if (matchCalledFor.current === product.id) return;
+    matchCalledFor.current = product.id;
+
+    const orderSlim = orders.map((o) => ({
+      id: o.id,
+      items: (o.items || []).map((i) => ({
+        id: i.id,
+        name: i.name || "",
+        category: i.category || "",
+        brand: i.brand || "",
+        price: i.price || 0,
+        rating: i.rating || 0,
+        returned: i.returnStatus === "Returned",
+      })),
+    }));
+    const wishlistSlim = (wishlist || []).map((i) => ({
+      id: i.id, name: i.name || "", category: i.category || "", brand: i.brand || "", price: i.price || 0,
+    }));
+    const cartSlim = (cartItems || []).map((i) => ({
+      id: i.id, name: i.name || "", category: i.category || "", brand: i.brand || "", price: i.price || 0,
+    }));
+    const historySlim = (history || []).slice(0, 30).map((i) => ({
+      id: i.id, name: i.name || "", category: i.category || "", brand: i.brand || "",
+    }));
+
+    setMatchLoading(true);
+    fetch(`${API}/api/sense/match-ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: {
+          id: product.id,
+          name: product.name,
+          category: product.category || "",
+          brand: product.brand || "",
+          price: product.price || 0,
+          rating: product.rating || 0,
+          reviewCount: product.reviewCount || 0,
+        },
+        trustScore: trustData?.productScore ?? 0,
+        orders: orderSlim,
+        wishlist: wishlistSlim,
+        cartItems: cartSlim,
+        viewHistory: historySlim,
+      }),
+    })
+      .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+      .then((data) => {
+        if (data) {
+          setDnaMatch(data);
+          setProductAiScore(product.id, { score: data.score, label: data.label });
+        }
+      })
+      .catch((err) => console.warn("Sense match-ai failed:", err))
+      .finally(() => setMatchLoading(false));
+  }, [product?.id, trustAnalyzing]);
 
   const handleAddToCart = () => {
     addToCart(product, qty);
@@ -143,9 +208,8 @@ export default function ProductPage() {
         title: reviewForm.title,
         body: reviewForm.body,
       });
-      // prepend so new review appears at top + update count
-      setDbReviews((prev) => [newReview, ...prev]);
-      setReviewsTotal((t) => t + 1);
+      // Prepend to session reviews so it appears immediately at the top
+      setNewReviews((prev) => [newReview, ...prev]);
       // also save to localStorage for My Reviews page
       saveReview({
         productId,
@@ -187,7 +251,7 @@ export default function ProductPage() {
 
   if (!product) return null;
 
-  const nonSuspicious = (product.reviews || []).filter((r) => !r.suspicious);
+  // nonSuspiciousAll is computed below after allReviews is built
   const currentEmail = authUser?.email?.toLowerCase();
   const hasPurchased = orders.some(
     (o) =>
@@ -199,16 +263,20 @@ export default function ProductPage() {
   const sustainData = getSustainabilityData(productId);
   const sustainEcoLabel = trustData?.company?.ecoLabel ?? null;
 
-  // Live rating computed from all loaded reviews (updates when new review submitted)
-  const liveRating = dbReviews.length > 0
-    ? parseFloat((dbReviews.reduce((s, r) => s + r.rating, 0) / dbReviews.length).toFixed(1))
-    : product.rating;
+  // Customer DB reviews (customers.js — local JS, verified purchases) + any session-submitted reviews.
+  // Falls back to product.reviews (generated) only for products with no customer data (DummyJSON/books).
+  const baseReviews = dbReviews.length > 0 ? dbReviews : (product?.reviews || []);
+  const allReviews = [...newReviews, ...baseReviews];
+  const nonSuspiciousAll = allReviews.filter((r) => !r.suspicious);
 
-  // Star distribution — only computed from real loaded reviews
-  const starDist = dbReviews.length > 0
+  const liveRating = allReviews.length > 0
+    ? parseFloat((allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length).toFixed(1))
+    : product?.rating ?? 0;
+
+  const starDist = allReviews.length > 0
     ? [5, 4, 3, 2, 1].map((star) => {
-        const cnt = dbReviews.filter((r) => r.rating === star).length;
-        return { star, pct: Math.round((cnt / dbReviews.length) * 100) };
+        const cnt = allReviews.filter((r) => r.rating === star).length;
+        return { star, pct: Math.round((cnt / allReviews.length) * 100) };
       })
     : null;
 
@@ -319,10 +387,10 @@ export default function ProductPage() {
             <h1 className="text-xl font-medium text-[#0F1111] mt-1 leading-snug">{product.name}</h1>
 
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              <StarRating rating={liveRating} count={reviewsTotal || product.reviewCount} size="md" />
+              <StarRating rating={liveRating} count={product.reviewCount} size="md" />
               <span className="text-xs text-[#565959]">|</span>
               <a href="#reviews" className="text-xs text-[#007185] hover:underline">
-                {(reviewsTotal || product.reviewCount).toLocaleString("en-IN")} ratings
+                {(product.reviewCount).toLocaleString("en-IN")} ratings
               </a>
               <span className="text-xs text-[#565959]">|</span>
               <input
@@ -368,38 +436,39 @@ export default function ProductPage() {
             )}
 
             {/* ── AMAZON SENSE MATCH ── */}
-            {dnaMatch && dnaMatch.confident && (() => {
-              // Dampen Sense score when TrustLens is below 75
+            {matchLoading && (
+              <div className="mb-4 border border-gray-200 rounded-xl p-3 bg-gray-50 flex items-center gap-2">
+                <span className="text-xs text-[#565959]">🧠 Amazon Sense is analyzing…</span>
+              </div>
+            )}
+            {!matchLoading && dnaMatch && (() => {
               const trustScore = trustData?.productScore ?? 75;
               let displayScore = dnaMatch.score;
 
-              // TrustLens below 40: hide entirely
               if (trustScore < 40) return null;
-
-              if (trustScore < 75 && displayScore >= 95) {
-                // Force Pick Me down into Recommended range (80-94)
-                const trustRatio = (trustScore - 40) / 35; // 0..1 (40→0, 74→0.97)
-                displayScore = Math.round(80 + trustRatio * 14); // 80..94
+              if (trustScore < 75 && displayScore >= 90) {
+                const trustRatio = (trustScore - 40) / 35;
+                displayScore = Math.round(80 + trustRatio * 9);
               }
               if (displayScore < 80) return null;
+
+              const isPickMe = displayScore >= 90;
               return (
-              <div className={`mb-4 border rounded-xl p-4 ${displayScore >= 95 ? "bg-[#FFF8E1] border-[#FFE082]" : "bg-gray-50 border-gray-200"}`}>
+              <div className={`mb-4 border rounded-xl p-4 ${isPickMe ? "bg-[#FFF8E1] border-[#FFE082]" : "bg-gray-50 border-gray-200"}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    {displayScore >= 95 && <span className="text-base">👑</span>}
+                    {isPickMe && <span className="text-base">👑</span>}
                     <span className="text-sm font-bold text-[#0F1111]">
-                      {displayScore >= 95 ? `${displayScore}% Likely To Love This` : `${displayScore}% Match`}
+                      {isPickMe ? `${displayScore}% — Pick Me` : `${displayScore}% — Recommended`}
                     </span>
                   </div>
                   <span className="text-[10px] bg-[#131921] text-white px-2 py-0.5 rounded-full font-bold">AMAZON SENSE</span>
                 </div>
                 <p className="text-xs text-[#565959] mb-3">
-                  {displayScore >= 95
-                    ? "This recommendation is based on your shopping behavior."
-                    : dnaMatch.message}
+                  {dnaMatch.summary || (isPickMe
+                    ? "Based on your shopping behavior, you're very likely to love this."
+                    : "A good match based on your recent orders.")}
                 </p>
-
-                {/* Positive reasons */}
                 {dnaMatch.reasons?.length > 0 && (
                   <div className="space-y-1 mb-2">
                     {dnaMatch.reasons.map((r, i) => (
@@ -409,8 +478,6 @@ export default function ProductPage() {
                     ))}
                   </div>
                 )}
-
-                {/* Warnings */}
                 {dnaMatch.warnings?.length > 0 && (
                   <div className="space-y-1 mt-2 pt-2 border-t border-orange-200">
                     {dnaMatch.warnings.map((w, i) => (
@@ -423,13 +490,6 @@ export default function ProductPage() {
               </div>
               );
             })()}
-            {dnaMatch && !dnaMatch.confident && (
-              <div className="mb-4 border border-gray-200 rounded-xl p-3 bg-gray-50">
-                <p className="text-xs text-[#565959] flex items-center gap-1.5">
-                  <span>🧠</span> {dnaMatch.message}
-                </p>
-              </div>
-            )}
 
             {/* Pricing */}
             <div className="mb-4">
@@ -593,23 +653,23 @@ export default function ProductPage() {
                 )}
               </div>
 
-              {/* Review list — from customer database */}
+              {/* Review list — from product data (local JS files) */}
               <div className="space-y-4">
                 {reviewSearch.trim() && (
                   <p className="text-xs text-[#565959]">
                     Showing results for <span className="font-medium text-[#0F1111]">"{reviewSearch}"</span>
                     {" — "}
-                    {dbReviews.filter(r => `${r.title} ${r.body} ${r.author}`.toLowerCase().includes(reviewSearch.toLowerCase())).length} match(es)
+                    {nonSuspiciousAll.filter(r => `${r.title} ${r.body} ${r.author}`.toLowerCase().includes(reviewSearch.toLowerCase())).length} match(es)
                   </p>
                 )}
-                {dbReviews.filter(r => !reviewSearch.trim() || `${r.title} ${r.body} ${r.author}`.toLowerCase().includes(reviewSearch.toLowerCase())).map((review, i) => (
-                  <div key={`${review.customerId}-${i}`} className="border-b border-gray-100 pb-4">
+                {nonSuspiciousAll.filter(r => !reviewSearch.trim() || `${r.title} ${r.body} ${r.author}`.toLowerCase().includes(reviewSearch.toLowerCase())).map((review, i) => (
+                  <div key={review.id || i} className="border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-7 h-7 rounded-full bg-[#EAEDED] flex items-center justify-center text-xs font-bold text-[#565959]">
-                        {review.author[0].toUpperCase()}
+                        {(review.author || "?")[0].toUpperCase()}
                       </div>
                       <span className="text-sm font-medium text-[#0F1111]">{review.author}</span>
-                      <span className="text-xs text-[#565959]">{review.city}</span>
+                      {review.city && <span className="text-xs text-[#565959]">{review.city}</span>}
                       {review.verified && (
                         <span className="text-xs text-[#C7511F]">Verified Purchase</span>
                       )}
@@ -620,22 +680,12 @@ export default function ProductPage() {
                     </div>
                     <p className="text-xs text-[#565959] mb-1">Reviewed in India on {review.date}</p>
                     <p className="text-sm text-[#0F1111]">{review.body}</p>
+                    {review.helpful > 0 && (
+                      <p className="text-xs text-[#565959] mt-1">{review.helpful} people found this helpful</p>
+                    )}
                   </div>
                 ))}
-                {reviewsLoading && (
-                  <div className="flex justify-center py-4">
-                    <div className="w-5 h-5 border-2 border-[#FF9900] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-                {!reviewsLoading && dbReviews.length < reviewsTotal && (
-                  <button
-                    onClick={() => fetchReviews(productId, reviewsPage + 1)}
-                    className="text-sm text-[#007185] hover:underline mt-2"
-                  >
-                    Load more reviews ({reviewsTotal - dbReviews.length} remaining)
-                  </button>
-                )}
-                {!reviewsLoading && dbReviews.length === 0 && (
+                {nonSuspiciousAll.length === 0 && (
                   <p className="text-sm text-[#565959]">No reviews yet. Be the first!</p>
                 )}
               </div>

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { groqCall, PRIMARY_MODEL } from "../utils/groqClient.js";
+import { groqCall, FAST_MODEL } from "../utils/groqClient.js";
 
 const router = Router();
 
@@ -161,7 +161,7 @@ Return ONLY valid JSON, no markdown, no extra text:
 
   try {
     const completion = await groqCall({
-      model: PRIMARY_MODEL,
+      model: FAST_MODEL,
       max_tokens: 900,
       temperature: 0.2,
       messages: [

@@ -7,7 +7,7 @@ import { computeProductScore, computeDeliveryRate } from "../utils/trustFormula.
 import { computeProductTrustScore, getProductStats } from "../data/customers.js";
 import { getCompanyByName } from "../data/companies.js";
 import DnaProfile from "../models/DnaProfile.js";
-import { groqCall, FAST_MODEL } from "../utils/groqClient.js";
+import { groqCall, FAST_MODEL, PRIMARY_MODEL } from "../utils/groqClient.js";
 
 // ── Suspicious review scanner ──────────────────────────────────────────────────
 const suspiciousCache = new Map(); // productId → { flagged, ts }
@@ -48,7 +48,8 @@ Respond with ONLY this JSON — no explanation, no markdown:
 If no reviews are suspicious, respond with: {"flagged":[]}
 Return at most 3 entries.`;
 
-  try {
+  // 3-second timeout so seller-trust is never blocked more than ~3s waiting on Groq
+  const scan = async () => {
     const resp = await groqCall({
       model: FAST_MODEL,
       max_tokens: 200,
@@ -60,14 +61,18 @@ Return at most 3 entries.`;
     const parsed = JSON.parse(text.slice(jsonStart));
     const flaggedIds = new Set((parsed.flagged || []).map((f) => f.id));
     const reasonMap = Object.fromEntries((parsed.flagged || []).map((f) => [f.id, f.reason]));
-
     const result = reviews
       .filter((r) => flaggedIds.has(r.id))
       .slice(0, 3)
       .map((r) => ({ ...r, aiReason: reasonMap[r.id] || "Flagged by AI analysis" }));
-
     suspiciousCache.set(productId, { flagged: result, ts: Date.now() });
     return result;
+  };
+
+  const timeoutGuard = new Promise((resolve) => setTimeout(() => resolve([]), 3000));
+
+  try {
+    return await Promise.race([scan(), timeoutGuard]);
   } catch {
     return [];
   }
@@ -140,7 +145,7 @@ function recompute(profile) {
 // PURCHASE TIMING INTELLIGENCE (existing)
 // ══════════════════════════════════════════════════════════════════════════════
 
-router.get("/predictions", (req, res) => {
+router.get("/predictions", (_req, res) => {
   const sorted = [...senseItems].sort((a, b) => b.daysOverdue - a.daysOverdue);
   res.json({ predictions: sorted });
 });
@@ -203,11 +208,33 @@ router.get("/profile", async (req, res) => {
     if (!profile) return res.status(400).json({ message: "userId or guestId required" });
 
     const eventCount = profile.events.length;
+
+    // Build purchase-only category + brand maps (excludes view/cart events)
+    const purchaseCatMap = {};
+    const purchaseBrandByCat = {};
+    for (const e of profile.events.filter(ev => ev.type === "purchase")) {
+      if (e.category) {
+        purchaseCatMap[e.category] = (purchaseCatMap[e.category] || 0) + 1;
+        if (e.brand) {
+          if (!purchaseBrandByCat[e.category]) purchaseBrandByCat[e.category] = new Set();
+          purchaseBrandByCat[e.category].add(e.brand);
+        }
+      }
+    }
+    const purchasedCategories = Object.entries(purchaseCatMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, count]) => ({
+        category,
+        count,
+        brands: [...(purchaseBrandByCat[category] || [])],
+      }));
+
     res.json({
       mature: eventCount >= 5,
       eventCount,
       preferredBrands: profile.preferredBrands,
       preferredCategories: profile.preferredCategories,
+      purchasedCategories,
       budgetRange: profile.budgetRange,
       sustainabilityAffinity: profile.sustainabilityAffinity,
       returnPatterns: profile.returnPatterns,
@@ -414,6 +441,174 @@ router.get("/match/:productId", async (req, res) => {
     matchLevel: score >= 95 ? "exceptional" : score >= 90 ? "excellent" : score >= 75 ? "good" : score >= 60 ? "moderate" : "low",
     message: score >= 95 ? "You're very likely to love this product." : score >= 90 ? "This product strongly aligns with your shopping behavior." : score >= 75 ? "This product is a good fit based on your preferences." : score >= 60 ? "This product partially matches your profile." : "This product may not match your usual preferences.",
   });
+});
+
+router.post("/match-ai", async (req, res) => {
+  const { product, trustScore = 0, orders = [], wishlist = [], cartItems = [], viewHistory = [] } = req.body;
+  if (!product?.id) return res.status(400).json({ message: "product required" });
+
+  const recentOrders = orders.slice(0, 4);
+  const allOrderItems = orders.flatMap((o) => o.items || []);
+  const recentItems = recentOrders.flatMap((o) => o.items || []);
+
+  console.log(`[match-ai] product="${product.name}" orders=${orders.length} orderItems=${allOrderItems.length} wishlist=${wishlist.length} cart=${cartItems.length} views=${viewHistory.length}`);
+
+  const noData = allOrderItems.length === 0 && wishlist.length === 0 && cartItems.length === 0;
+  if (noData) {
+    console.log("[match-ai] noData → score=0");
+    return res.json({ score: 0, confident: false, label: "moderate", reasons: [], warnings: [], summary: "" });
+  }
+
+  // Supporting signals for the prompt
+  const boughtBefore = allOrderItems.some((i) => i.id === product.id);
+  const inWishlist = wishlist.some((i) => i.id === product.id);
+  const inCart = cartItems.some((i) => i.id === product.id);
+  const viewCount = viewHistory.filter((i) => i.id === product.id).length;
+  const avgSpend = allOrderItems.length > 0
+    ? Math.round(allOrderItems.reduce((s, i) => s + (i.price || 0), 0) / allOrderItems.length) : 0;
+  const budgetRatio = avgSpend > 0 ? (product.price / avgSpend).toFixed(2) : "unknown";
+  const returnedIds = new Set(
+    orders.flatMap((o) => (o.items || []).filter((i) => i.returned).map((i) => i.id))
+  );
+  const keepRate = allOrderItems.length > 0
+    ? Math.round((1 - returnedIds.size / allOrderItems.length) * 100) : 90;
+  const catPurchaseCount = allOrderItems.filter(
+    (i) => (i.category || "").toLowerCase() === (product.category || "").toLowerCase()
+  ).length;
+  const brandPurchaseCount = allOrderItems.filter(
+    (i) => product.brand && (i.brand || "").toLowerCase() === (product.brand || "").toLowerCase()
+  ).length;
+
+  const recentText = recentItems.length > 0
+    ? recentItems.map((i) => `- ${i.name} [${i.category || "?"}]${i.brand ? ` by ${i.brand}` : ""}`).join("\n")
+    : "No recent purchases";
+
+  const wishlistText = wishlist.length > 0
+    ? wishlist.slice(0, 5).map((i) => `- ${i.name || i.id} [${i.category || "?"}]`).join("\n")
+    : "Empty";
+
+  const cartText = cartItems.length > 0
+    ? cartItems.map((i) => `- ${i.name || i.id} [${i.category || "?"}]`).join("\n")
+    : "Empty";
+
+  if (!process.env.GROQ_API_KEY) {
+    const catMatch = catPurchaseCount > 0;
+    let score = catMatch ? 75 : 50;
+    if (inWishlist || inCart) score += 15;
+    if (avgSpend > 0 && budgetRatio !== "unknown" && parseFloat(budgetRatio) <= 2) score += 10;
+    score = Math.min(100, score);
+    return res.json({
+      score,
+      confident: score >= 80,
+      label: score >= 90 ? "pick_me" : score >= 80 ? "recommended" : "moderate",
+      reasons: catMatch ? ["Matches your recent purchase categories"] : ["Based on your wishlist"],
+      warnings: [],
+      summary: score >= 80 ? "Good fit based on your recent orders." : "",
+    });
+  }
+
+  const prompt = `You are Amazon Sense — a purchase intelligence engine. Your job is to decide whether a product is a natural NEXT BUY for this user based on their recent purchases.
+
+━━━ PRODUCT BEING VIEWED ━━━
+Name: ${product.name}
+Category: ${product.category || "Unknown"}
+Brand: ${product.brand || "Unknown"}
+Price: ₹${product.price}
+Rating: ${product.rating || "?"}/5 (${product.reviewCount || 0} reviews)
+TrustLens score: ${trustScore}/100
+
+━━━ USER'S RECENT PURCHASES (last 3-4 orders — most important) ━━━
+${recentText}
+
+━━━ ADDITIONAL CONTEXT ━━━
+Wishlist:
+${wishlistText}
+Cart:
+${cartText}
+Viewed this product: ${viewCount} time(s)
+Previously bought this exact product: ${boughtBefore ? "yes" : "no"}
+Past purchases in same category: ${catPurchaseCount}
+Past purchases from same brand: ${brandPurchaseCount}
+User's average spend: ₹${avgSpend} (this product is ${budgetRatio}x their avg)
+Keep rate (non-returns): ${keepRate}%
+
+━━━ CATEGORY COMPLEMENT RULES ━━━
+grocery/food (coffee, tea, snacks) → kitchen: kettle, cooker, induction cooktop, air fryer
+kitchen appliances → other kitchen appliances + personal care (bottles, containers)
+tv/streaming → audio: soundbar, headphones + streaming devices (Fire Stick, Echo)
+phone → audio: earbuds, headphones + power bank + USB hub
+gaming → gaming peripherals: keyboard, mouse, gaming monitor, desk mat
+office/laptop/monitor → desk accessories: stand, lamp, webcam, mouse, cable organiser, USB hub
+smart home → more smart home: smart bulb, smart plug, Echo Dot
+audio (headphones/earbuds) → phone, streaming, or office accessories
+furniture (chair, desk) → office or study accessories
+personal care → other personal care or home items
+home/cleaning → home organisation items
+
+━━━ SCORING RULES (follow exactly) ━━━
+
+Score 90–100 ("Pick Me") when:
+- This product is the SAME TYPE as a recently ordered product but a different brand
+  Example: user bought Nescafé coffee → another coffee brand scores 90+
+  Example: user bought Sony TV → another TV brand scores 90+
+- User has bought in this exact category multiple times (repeat buyer)
+- Budget fits within 1.5x average spend AND TrustLens ≥ 75
+
+Score 80–89 ("Recommended") when:
+- This product COMPLEMENTS a recent purchase (different but used together)
+  Example: user bought coffee → kettle, induction cooktop, air fryer score 80–89
+  Example: user bought TV → soundbar, HDMI cable, Fire Stick score 80–89
+  Example: user bought phone → earbuds, power bank, USB hub score 80–89
+- Budget is reasonable (under 2x average spend)
+
+Score 60–79: Tangential — loose connection to recent purchases
+Score below 60: No meaningful link to any recent purchase
+Score 0: No purchase, wishlist, or cart data at all
+
+Rules:
+- NEVER score 80+ if the product has zero connection to recent purchases
+- If product is already owned (boughtBefore=yes), score 50 max
+- Write reasons that NAME the specific product the user bought
+  Good: "You bought Nescafé — this kettle is essential for brewing."
+  Bad: "Matches your purchase history."
+- Keep each reason under 14 words
+- Include warnings ONLY for genuine issues (budget >2x, returned this category before)
+
+Respond ONLY with valid JSON, no markdown:
+{"score":<0-100>,"reasons":["...","..."],"warnings":[],"summary":"<one sentence max 15 words>"}`;
+
+  try {
+    const completion = await groqCall({
+      model: FAST_MODEL,
+      max_tokens: 350,
+      temperature: 0.1,
+      messages: [
+        { role: "system", content: "You are a purchase complement scoring engine. Return ONLY valid JSON." },
+        { role: "user", content: prompt },
+      ],
+    });
+
+    const raw = completion.choices[0].message.content.trim();
+    const firstBrace = raw.indexOf("{");
+    const lastBrace = raw.lastIndexOf("}");
+    const text = raw.slice(firstBrace, lastBrace + 1).replace(/,(\s*[}\]])/g, "$1");
+    const parsed = JSON.parse(text);
+    const score = Math.max(0, Math.min(100, parseInt(parsed.score) || 0));
+
+    console.log(`[match-ai] Groq score=${score} reasons=${(parsed.reasons || []).length}`);
+
+    res.json({
+      score,
+      confident: score >= 70,
+      label: score >= 90 ? "pick_me" : score >= 80 ? "recommended" : "moderate",
+      reasons: parsed.reasons || [],
+      warnings: parsed.warnings || [],
+      summary: parsed.summary || "",
+    });
+  } catch (err) {
+    console.warn("[match-ai] Groq error:", err.message);
+    res.status(500).json({ message: "Match scoring unavailable" });
+  }
 });
 
 router.get("/recommendations", async (req, res) => {

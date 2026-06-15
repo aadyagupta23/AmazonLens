@@ -1,9 +1,10 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
 import { products, bundles } from "../data/mockData.js";
+import { djProducts } from "../data/djProducts.js";
 import { generateReviews } from "../data/reviewGenerator.js";
 import { computeProductScore } from "../utils/trustFormula.js";
-import { getProductReviews, getProductStats, computeProductTrustScore } from "../data/customers.js";
+import { getProductStats, computeProductTrustScore } from "../data/customers.js";
 
 const router = Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -27,127 +28,8 @@ function srStr(str, offset = 0) {
   return x - Math.floor(x);
 }
 
-// ── DummyJSON ─────────────────────────────────────────────────────────────
-
-const DJ_CATEGORY_MAP = {
-  smartphones: "Electronics > Mobiles",
-  laptops: "Electronics > Computers",
-  tablets: "Electronics > Mobiles",
-  "mobile-accessories": "Electronics > Accessories",
-  "kitchen-accessories": "Home & Kitchen",
-  "home-decoration": "Home & Kitchen",
-  furniture: "Home & Kitchen",
-  lighting: "Home & Kitchen",
-  groceries: "Grocery",
-  beauty: "Beauty",
-  fragrances: "Beauty",
-  "skin-care": "Beauty",
-  "sports-accessories": "Sports",
-  sunglasses: "Fashion",
-  "mens-shirts": "Fashion",
-  "mens-shoes": "Fashion",
-  "mens-watches": "Fashion",
-  "womens-dresses": "Fashion",
-  "womens-shoes": "Fashion",
-  "womens-watches": "Fashion",
-  "womens-bags": "Fashion",
-  "womens-jewellery": "Fashion",
-  tops: "Fashion",
-};
-
-function mapDJProduct(p) {
-  const id = p.id;
-  const priceINR = Math.round(p.price * 83);
-  const disc = Math.min(80, Math.round(p.discountPercentage));
-  const originalINR = Math.round(priceINR / Math.max(0.25, 1 - disc / 100));
-  // ~12% of DummyJSON products are from suspicious/low-trust sellers
-  const isSuspiciousSeller = sr(id, 22) > 0.88;
-  const trust = isSuspiciousSeller
-    ? Math.max(22, Math.min(52, Math.round(18 + p.rating * 5 + sr(id, 1) * 10)))
-    : Math.max(55, Math.min(96, Math.round(50 + p.rating * 8 + sr(id, 1) * 12)));
-  const isFakeDisc = disc > 45 && sr(id, 2) > 0.5;
-
-  const priceHistory = Array.from({ length: 12 }, (_, i) => {
-    const spike = sr(id, i + 20) > 0.78;
-    return spike ? Math.round(originalINR * (0.82 + sr(id, i + 30) * 0.35)) : priceINR;
-  });
-  priceHistory[11] = priceINR;
-
-  const spikePriceMonths = priceHistory
-    .map((price, i) => (price > priceINR * 1.12 ? i : -1))
-    .filter((i) => i >= 0);
-
-  return {
-    id: `dj${id}`,
-    name: p.title,
-    brand: p.brand || "Generic",
-    category: DJ_CATEGORY_MAP[p.category],
-    price: priceINR,
-    originalPrice: originalINR,
-    discount: disc,
-    rating: Math.round(p.rating * 10) / 10,
-    reviewCount: Math.round(200 + sr(id, 3) * 75000),
-    inStock: p.stock > 0,
-    isPrime: sr(id, 4) > 0.3,
-    delivery: sr(id, 5) > 0.5 ? "Get it by Tomorrow, 6 PM" : "Get it by Day after Tomorrow",
-    deliveryFree: true,
-    trustScore: trust,
-    trustLabel: trust > 75 ? "Genuine" : trust >= 50 ? "Mixed" : "Suspicious",
-    isFakeDiscount: isFakeDisc,
-    fakeDiscountNote: isFakeDisc ? "High discount rate — listed MRP may be aspirational" : null,
-    buyNowOrWait: sr(id, 6) > 0.55 ? "buy" : "wait",
-    waitReason: sr(id, 6) <= 0.55 ? "Sale expected in the next 2 weeks based on historical patterns." : null,
-    spikePriceMonths,
-    priceHistory,
-    thumbnail: p.thumbnail,
-    images: [p.thumbnail, ...(p.images || []).slice(0, 2)],
-    description: p.description || "",
-    features: [],
-    specs: {},
-    witnesses: [],
-    reviews: [],
-    soldBy: p.brand || "Third-party Seller",
-    soldByRating: isSuspiciousSeller
-      ? parseFloat((2.0 + sr(id, 7) * 0.9).toFixed(1))
-      : parseFloat((3.8 + sr(id, 7) * 1.2).toFixed(1)),
-    sellerSince: isSuspiciousSeller
-      ? String(2021 + Math.floor(sr(id, 8) * 4))
-      : String(2010 + Math.floor(sr(id, 8) * 12)),
-    fulfillment: isSuspiciousSeller ? "Seller fulfilled" : (sr(id, 9) > 0.4 ? "Fulfilled by Amazon" : "Seller fulfilled"),
-    trustBreakdown: {
-      reviewAuthenticity: { score: Math.max(14, Math.min(96, trust + Math.round((sr(id, 11) - 0.5) * 28))), detail: null },
-      returnRate:         { score: Math.max(14, Math.min(96, trust + Math.round((sr(id, 12) - 0.5) * 22))), detail: null },
-      warrantyClaims:     { score: Math.max(14, Math.min(96, trust + Math.round((sr(id, 13) - 0.5) * 18))), detail: null },
-      sellerReliability:  { score: Math.max(14, Math.min(96, trust + 8 + Math.round((sr(id, 14) - 0.5) * 16))), detail: null },
-      priceStability:     { score: Math.max(14, Math.min(96, (isFakeDisc ? trust - 28 : trust) + Math.round((sr(id, 15) - 0.5) * 22))), detail: null },
-    },
-  };
-}
-
-let djCache = null;
-let djFetchPromise = null;
-
-async function getDJProducts() {
-  if (djCache) return djCache;
-  if (djFetchPromise) return djFetchPromise;
-
-  djFetchPromise = fetch(
-    "https://dummyjson.com/products?limit=194&select=id,title,description,category,price,discountPercentage,rating,stock,brand,thumbnail,images"
-  )
-    .then((r) => r.json())
-    .then(({ products: dp }) => {
-      djCache = dp.filter((p) => DJ_CATEGORY_MAP[p.category]).map(mapDJProduct);
-      console.log(`DummyJSON: loaded ${djCache.length} products`);
-      return djCache;
-    })
-    .catch((err) => {
-      console.log("DummyJSON fetch failed:", err.message);
-      djCache = [];
-      return [];
-    });
-
-  return djFetchPromise;
-}
+// DummyJSON products are now static — imported from djProducts.js
+// (previously fetched from https://dummyjson.com/products at runtime)
 
 // ── Open Library Books ────────────────────────────────────────────────────
 
@@ -287,8 +169,7 @@ async function getBookProducts() {
   return olFetchPromise;
 }
 
-// Pre-fetch both at startup so first request is fast
-getDJProducts();
+// Pre-fetch books at startup so first request is fast
 getBookProducts();
 
 // ── Helper: all products combined (cached with computed trust scores) ─────
@@ -302,23 +183,44 @@ export function invalidateProductCache() {
 async function getAllProducts() {
   if (allProductsCache) return allProductsCache;
 
-  const [dj, books] = await Promise.all([getDJProducts(), getBookProducts()]);
-  const base = [...products, ...dj, ...books].map((p) => ({
+  const books = await getBookProducts();
+  const base = [...products, ...djProducts, ...books].map((p) => ({
     ...p,
-    reviews: generateReviews(p, 10),
+    // Keep real 50-review arrays from mockData; only generate for external products that have none
+    reviews: (p.reviews && p.reviews.length > 0) ? p.reviews : generateReviews(p, 50),
   }));
 
-  // Score every product independently using its own return/reorder rates.
-  // DummyJSON/book products with no customer data use getProductStats defaults (10% return, 20% reorder).
+  // Score every product and stamp real reviewCount + rating from customers.js data.
   allProductsCache = base.map((product) => {
-    // Use the same TrustLens formula as TrustPanel so listing and product page show identical scores
     const trust = computeProductTrustScore(product.id);
-    const productScore = trust.insufficient
-      ? (() => { const s = getProductStats(product.id); const { productScore: ps } = computeProductScore(product, 0, { Rg: s.returnRate, Ri: Math.min(1, s.reorderRate / 0.45), avgRating: s.avgRating }); return ps; })()
-      : Math.round(trust.componentScores.returnScore + trust.componentScores.reorderScore + trust.componentScores.reviewScore);
+    let productScore, reviewCount, rating;
+
+    if (!trust.insufficient) {
+      // Real customer data available — use it for everything
+      productScore = Math.round(
+        trust.componentScores.returnScore +
+        trust.componentScores.reorderScore +
+        trust.componentScores.reviewScore
+      );
+      reviewCount = trust.rawMetrics.avgRating.totalReviews;
+      rating      = trust.rawMetrics.avgRating.avgRating;
+    } else {
+      // External product (DummyJSON/books) — fallback score, use generated review array for count/rating
+      const s = getProductStats(product.id);
+      const { productScore: ps } = computeProductScore(product, 0, {
+        Rg: s.returnRate, Ri: Math.min(1, s.reorderRate / 0.45), avgRating: s.avgRating,
+      });
+      productScore = ps;
+      // Compute real stats from generated reviews array
+      const revs = product.reviews || [];
+      reviewCount = revs.length;
+      rating = revs.length > 0
+        ? parseFloat((revs.reduce((sum, r) => sum + r.rating, 0) / revs.length).toFixed(2))
+        : product.rating;
+    }
+
     const productStatus = productScore >= 75 ? "VERIFIED" : "TRUSTED";
-    const { total: dbReviewCount } = getProductReviews(product.id, 1, 1);
-    return { ...product, productScore, productStatus, reviewCount: dbReviewCount || product.reviewCount };
+    return { ...product, productScore, productStatus, reviewCount, rating };
   });
 
   console.log(`Trust scores computed for ${allProductsCache.length} products`);

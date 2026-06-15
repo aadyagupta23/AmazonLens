@@ -30,6 +30,7 @@ export function OrdersProvider({ children }) {
     const updated = [order, ...orders];
     setOrders(updated);
     save(updated);
+    window.dispatchEvent(new CustomEvent("orders:updated"));
     return order;
   };
 

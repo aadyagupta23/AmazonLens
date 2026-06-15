@@ -18,12 +18,13 @@ const STATUS_LABEL = {
   TRUSTED:  "Trusted",
 };
 
+
 export default function ProductCard({ product, greenerChoice = false }) {
   const navigate = useNavigate();
   const { items, addToCart, updateQty, removeFromCart } = useCart();
   const { toggle, isInWishlist } = useWishlist();
   const { startAddToPlan, plans, lastAddedProductId } = useCoPlanner();
-  const { profile } = useSense();
+  const { profile, aiScores, localPurchasedCats } = useSense();
   const wishlisted = isInWishlist(product.id);
   const [justAdded, setJustAdded] = useState(false);
 
@@ -31,41 +32,34 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const cartItem = items.find((i) => i.id === product.id);
   const inCart = !!cartItem;
 
-  // Client-side Amazon Sense match score (lightweight — no API call)
+  // Use Groq AI score if cached (set when user visited product page), otherwise strict heuristic
   const senseMatchScore = (() => {
-    if (!profile?.mature) return 0;
-    let score = 50;
-    const brandKey = (product.brand || "").toLowerCase();
-    const catKey = (product.category || "").toLowerCase();
+    const cached = aiScores?.[product.id];
+    if (cached != null) return cached.score;
 
-    // Brand affinity
-    const brandEntry = (profile.preferredBrands || []).find((b) => b.brand.toLowerCase() === brandKey);
-    if (brandEntry) {
-      const maxScore = profile.preferredBrands[0]?.score || 1;
-      score += Math.round((brandEntry.score / maxScore) * 25);
-    }
-    if ((profile.returnedBrands || []).includes(product.brand)) score -= 20;
+    // Use localStorage orders (instant, no async) — falls back to Sense profile if somehow empty
+    const purchasedCats = localPurchasedCats.length > 0
+      ? localPurchasedCats
+      : (profile?.purchasedCategories || []);
 
-    // Category affinity
-    const catEntry = (profile.preferredCategories || []).find(
-      (c) => catKey.includes(c.category.toLowerCase()) || c.category.toLowerCase().includes(catKey)
-    );
-    if (catEntry) {
-      const maxScore = profile.preferredCategories[0]?.score || 1;
-      score += Math.round((catEntry.score / maxScore) * 20);
-    }
+    const productCat = (product.category || "").toLowerCase();
+    const productBrand = (product.brand || "").toLowerCase();
+    const returnedBrands = (profile?.returnedBrands || []).map(b => b.toLowerCase());
 
-    // Budget fit
-    if (product.price && profile.budgetRange?.avg > 0) {
-      const ratio = product.price / profile.budgetRange.avg;
-      if (ratio >= 0.5 && ratio <= 1.5) score += 15;
-      else if (ratio > 2.5) score -= 10;
+    // 90+ (Pick Me): same category as something purchased, but a DIFFERENT brand
+    const sameCatEntry = purchasedCats.find(c => {
+      const pc = c.category.toLowerCase();
+      return productCat.includes(pc) || pc.includes(productCat);
+    });
+    if (sameCatEntry) {
+      const purchasedBrandsInCat = (sameCatEntry.brands || []).map(b => b.toLowerCase());
+      const isDifferentBrand = purchasedBrandsInCat.length === 0 || !purchasedBrandsInCat.includes(productBrand);
+      const budgetOk = !profile?.budgetRange?.avg || product.price / profile.budgetRange.avg <= 2;
+      const notReturned = !returnedBrands.includes(productBrand);
+      if (isDifferentBrand && budgetOk && notReturned) return 91;
     }
 
-    // Rating boost
-    if (product.rating >= 4.3) score += 10;
-
-    return Math.max(0, Math.min(100, score));
+    return 0;
   })();
 
   const score = product.companyScore ?? product.productScore ?? product.trustScore ?? 70;
@@ -74,17 +68,11 @@ export default function ProductCard({ product, greenerChoice = false }) {
   const senseScore = (() => {
     if (score >= 75) return senseMatchScore;
     if (senseMatchScore < 80) return senseMatchScore;
-
-    // TrustLens below 40: kill any recommendation entirely
     if (score < 40) return 0;
-
-    // TrustLens 40-74: force Pick Me (95+) down into Recommended (80-94) range
-    if (senseMatchScore >= 95) {
-      const trustRatio = (score - 40) / 35; // 0..1 (40→0, 74→0.97)
-      return Math.round(80 + trustRatio * 14); // 80..94
+    if (senseMatchScore >= 90) {
+      const trustRatio = (score - 40) / 35;
+      return Math.round(80 + trustRatio * 9);
     }
-
-    // Already in Recommended range (80-94) — keep as-is
     return senseMatchScore;
   })();
 
@@ -181,14 +169,9 @@ export default function ProductCard({ product, greenerChoice = false }) {
         </div>
 
         {/* Amazon Sense recommendation — subtle inline label */}
-        {senseScore >= 95 && (
+        {senseScore >= 90 && (
           <div className="mt-1.5 text-[11px] text-[#725B13] font-medium">
             👑 Pick Me
-          </div>
-        )}
-        {senseScore >= 80 && senseScore < 95 && (
-          <div className="mt-1.5 text-[11px] text-[#565959] font-medium">
-            ✨ Recommended
           </div>
         )}
 

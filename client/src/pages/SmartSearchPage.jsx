@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext.jsx';
+import { useOrders } from '../contexts/OrdersContext.jsx';
 import {
   Search,
   Sparkles,
@@ -575,6 +576,7 @@ function CategorySection({ categoryKey, products }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SmartSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { orders } = useOrders();
   const initialQuery = searchParams.get('q') || '';
 
   const [inputVal, setInputVal] = useState(initialQuery);
@@ -605,7 +607,7 @@ export default function SmartSearchPage() {
       const res = await fetch('/api/smart-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({ query: q, orders }),
       });
       const data = await res.json();
       setResults(data);
@@ -615,7 +617,7 @@ export default function SmartSearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [setSearchParams]);
+  }, [setSearchParams, orders]);
 
   // Initial load
   useEffect(() => {
@@ -741,7 +743,16 @@ export default function SmartSearchPage() {
           {/* Example chips (only when no results yet) */}
           {!results && (
             <div className="flex flex-wrap gap-2 mt-3">
-              {['TV setup under ₹40,000', 'TV setup under ₹70,000', 'home theatre under ₹30,000', 'wireless earbuds'].map((ex) => (
+              {[
+                'TV setup under ₹40,000',
+                'Home theatre under ₹60,000',
+                'Office setup under ₹50,000',
+                'Kitchen starter kit under ₹5,000',
+                'Phone bundle under ₹80,000',
+                'Smart home setup',
+                'Gaming setup under ₹80,000',
+                'Computer accessories bundle',
+              ].map((ex) => (
                 <button
                   key={ex}
                   onClick={() => { setInputVal(ex); runSearch(ex); }}

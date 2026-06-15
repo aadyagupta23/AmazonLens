@@ -54,7 +54,7 @@ Use natural Indian English — contractions, slight informality is fine.`;
     ];
 
     const chat = await groq.chat.completions.create({
-      model: "llama3-70b-8192",
+      model: "llama-3.1-8b-instant",
       messages,
       max_tokens: 200,
       temperature: 0.75

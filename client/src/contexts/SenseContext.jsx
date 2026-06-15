@@ -33,10 +33,37 @@ function getGuestId() {
   return id;
 }
 
+// Build purchased-categories from localStorage orders so cards can show labels on first load
+function buildLocalPurchasedCats() {
+  try {
+    const orders = JSON.parse(localStorage.getItem("amz_orders") || "[]");
+    const catMap = {};
+    for (const order of orders) {
+      for (const item of order.items || []) {
+        const cat = item.category || "";
+        if (!cat) continue;
+        if (!catMap[cat]) catMap[cat] = { count: 0, brands: new Set() };
+        catMap[cat].count++;
+        if (item.brand) catMap[cat].brands.add(item.brand);
+      }
+    }
+    return Object.entries(catMap).map(([category, { count, brands }]) => ({
+      category,
+      count,
+      brands: [...brands],
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function SenseProvider({ children }) {
   const { user, token } = useAuth();
   const [profile, setProfile] = useState(null);
   const [senseReady, setSenseReady] = useState(false);
+  const [aiScores, setAiScores] = useState({});
+  // Populated synchronously from localStorage — available before any async profile fetch
+  const [localPurchasedCats, setLocalPurchasedCats] = useState(buildLocalPurchasedCats);
   const guestId = useRef(getGuestId());
 
   const headers = useCallback(() => {
@@ -44,6 +71,17 @@ export function SenseProvider({ children }) {
     if (token) h["Authorization"] = `Bearer ${token}`;
     return h;
   }, [token]);
+
+  // Keep localPurchasedCats in sync when the user places a new order (same tab or other tab)
+  useEffect(() => {
+    const refresh = () => setLocalPurchasedCats(buildLocalPurchasedCats());
+    window.addEventListener("orders:updated", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("orders:updated", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   useEffect(() => {
     const params = token ? "" : `?guestId=${guestId.current}`;
@@ -122,6 +160,10 @@ export function SenseProvider({ children }) {
     } catch { return null; }
   }, [token, headers]);
 
+  const setProductAiScore = useCallback((productId, scoreData) => {
+    setAiScores(prev => ({ ...prev, [productId]: scoreData }));
+  }, []);
+
   const getRecommendations = useCallback(async () => {
     try {
       const params = token ? "" : `?guestId=${guestId.current}`;
@@ -133,7 +175,7 @@ export function SenseProvider({ children }) {
   }, [token, headers]);
 
   return (
-    <SenseContext.Provider value={{ profile, senseReady, dnaReady: senseReady, recordEvent, getProductRisk, getProductMatch, getRecommendations, guestId: guestId.current }}>
+    <SenseContext.Provider value={{ profile, senseReady, dnaReady: senseReady, recordEvent, getProductRisk, getProductMatch, getRecommendations, setProductAiScore, aiScores, localPurchasedCats, guestId: guestId.current }}>
       {children}
     </SenseContext.Provider>
   );
