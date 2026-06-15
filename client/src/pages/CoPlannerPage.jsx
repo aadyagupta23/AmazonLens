@@ -299,7 +299,7 @@ function CreateGoalForm({ onCreated }) {
 }
 
 // ─── PlansDashboard ───────────────────────────────────────────────────────────
-function PlansDashboard({ plans, onCreated, onOpenPlan, onDeletePlan }) {
+function PlansDashboard({ plans, onCreated, onOpenPlan, onDeletePlan, currentUser }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
@@ -458,13 +458,35 @@ function PlansDashboard({ plans, onCreated, onOpenPlan, onDeletePlan }) {
                       >
                         Invite Members
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${p.name}"? This cannot be undone.`)) onDeletePlan(p.id); }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                        title="Delete plan"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {detail?.members?.find((m) => m.name === currentUser && m.role === "owner") ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${p.name}"? This cannot be undone.`)) {
+                            fetch(`${API}/api/co-planner/${p.id}/delete`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ requestedBy: currentUser }),
+                            }).then((r) => { if (r.ok) onDeletePlan(p.id); });
+                          }}}
+                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                          title="Delete plan"
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (confirm(`Leave "${p.name}"? Your assigned items will be unassigned.`)) {
+                            fetch(`${API}/api/co-planner/${p.id}/leave`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ memberName: currentUser }),
+                            }).then((r) => { if (r.ok) onDeletePlan(p.id); });
+                          }}}
+                          className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 font-medium"
+                          title="Leave plan"
+                        >
+                          <LogOut size={12} /> Leave
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -968,7 +990,7 @@ export default function CoPlannerPage() {
       );
     }
     // Join/load failed or no plan context — show dashboard
-    return <PlansDashboard plans={trackedPlans} onCreated={handleCreated} onDeletePlan={deletePlan} onOpenPlan={(id) => {
+    return <PlansDashboard plans={trackedPlans} onCreated={handleCreated} onDeletePlan={deletePlan} currentUser={currentUser} onOpenPlan={(id) => {
       window.history.replaceState(null, "", `/co-planner?id=${id}`);
       setLoading(true);
       fetch(`${API}/api/co-planner/${id}`)
@@ -990,6 +1012,13 @@ export default function CoPlannerPage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-6xl mx-auto">
+          {/* Back to dashboard */}
+          <button
+            onClick={() => { setPlan(null); setActivePlan(null); window.history.replaceState(null, "", "/co-planner"); }}
+            className="flex items-center gap-1 text-xs text-[#007185] hover:text-[#C7511F] hover:underline mb-3"
+          >
+            <ArrowRight size={12} className="rotate-180" /> Back to Co-Plans
+          </button>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-[#0F1111]">{plan.name}</h1>
@@ -1002,12 +1031,38 @@ export default function CoPlannerPage() {
               >
                 <UserPlus size={14} /> Invite
               </button>
+              <button
+                onClick={() => {
+                  const isOwner = plan.members.find((m) => m.name === currentUser && m.role === "owner");
+                  const msg = isOwner
+                    ? `Permanently delete "${plan.name}"? This cannot be undone.`
+                    : `Leave "${plan.name}"? Your assigned items will be unassigned.`;
+                  if (confirm(msg)) {
+                    const url = isOwner
+                      ? `${API}/api/co-planner/${plan.id}/delete`
+                      : `${API}/api/co-planner/${plan.id}/leave`;
+                    const body = isOwner
+                      ? { requestedBy: currentUser }
+                      : { memberName: currentUser };
+                    fetch(url, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(body),
+                    }).then((r) => {
+                      if (r.ok) { deletePlan(plan.id); setPlan(null); window.history.replaceState(null, "", "/co-planner"); }
+                    });
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
+              >
+                <LogOut size={14} /> Exit Plan
+              </button>
             </div>
           </div>
 
           {/* Members */}
-          <div className="flex items-center gap-2 mt-3">
-            {plan.members.map((m, i) => (
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            {plan.members.map((m) => (
               <span
                 key={m.name}
                 className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full text-white"
@@ -1015,6 +1070,25 @@ export default function CoPlannerPage() {
               >
                 {m.role === "owner" && <Crown size={10} />}
                 {m.name === currentUser ? "You" : m.name}
+                {/* Owner can remove other members */}
+                {plan.members.find((me) => me.name === currentUser && me.role === "owner") && m.name !== currentUser && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Remove ${m.name} from this plan?`)) {
+                        fetch(`${API}/api/co-planner/${plan.id}/remove-member`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ memberName: m.name, requestedBy: currentUser }),
+                        }).then((r) => r.json()).then((d) => { if (d.plan) setPlan(d.plan); });
+                      }
+                    }}
+                    className="ml-0.5 w-3.5 h-3.5 rounded-full bg-white/30 hover:bg-white/60 flex items-center justify-center transition-colors"
+                    title={`Remove ${m.name}`}
+                  >
+                    <X size={8} />
+                  </button>
+                )}
               </span>
             ))}
           </div>

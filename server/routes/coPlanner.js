@@ -873,6 +873,59 @@ router.post("/:planId/leave", (req, res) => {
   res.json({ plan: enrichPlan(plan) });
 });
 
+// ─── POST /api/co-planner/:planId/remove-member ──────────────────────────────
+// Only the owner can remove members
+router.post("/:planId/remove-member", (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  const { memberName, requestedBy } = req.body;
+  if (!memberName || !requestedBy) return res.status(400).json({ error: "memberName and requestedBy required" });
+
+  // Only owner can remove members
+  const requester = plan.members.find((m) => m.name === requestedBy);
+  if (!requester || requester.role !== "owner") {
+    return res.status(403).json({ error: "Only the plan owner can remove members" });
+  }
+
+  // Can't remove yourself (use leave instead)
+  if (memberName === requestedBy) {
+    return res.status(400).json({ error: "Use leave to remove yourself" });
+  }
+
+  const memberIdx = plan.members.findIndex((m) => m.name === memberName);
+  if (memberIdx === -1) return res.status(404).json({ error: "Member not found" });
+
+  plan.members.splice(memberIdx, 1);
+
+  // Unassign their items
+  plan.items.forEach((item) => {
+    if (item.assignedTo === memberName) {
+      item.assignedTo = null;
+    }
+  });
+
+  addActivity(plan, `${requestedBy} removed ${memberName} from the plan`, requestedBy);
+  res.json({ plan: enrichPlan(plan) });
+});
+
+// ─── POST /api/co-planner/:planId/delete ─────────────────────────────────────
+// Only the owner can permanently delete a plan
+router.post("/:planId/delete", (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  const { requestedBy } = req.body;
+  const requester = plan.members.find((m) => m.name === requestedBy);
+  if (!requester || requester.role !== "owner") {
+    return res.status(403).json({ error: "Only the plan owner can delete this plan" });
+  }
+
+  plans.delete(req.params.planId);
+  savePlans();
+  res.json({ success: true });
+});
+
 // ─── POST /api/co-planner/:planId/comment ────────────────────────────────────
 router.post("/:planId/comment", (req, res) => {
   const plan = plans.get(req.params.planId);
