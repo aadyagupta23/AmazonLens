@@ -59,18 +59,20 @@ export default function CartPage() {
     const today = new Date();
     const candidates = [];
     for (const [pid, { item, dates }] of Object.entries(productMap)) {
+      if (dates.length < 3) continue; // Need at least 3 orders to detect a pattern
       dates.sort((a, b) => a - b);
       const lastDate = dates[dates.length - 1];
       const daysSinceLast = Math.round((today - lastDate) / 86400000);
-      let avgCycleDays = 30;
-      if (dates.length >= 2) {
-        const gaps = [];
-        for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i-1]) / 86400000);
-        avgCycleDays = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
-      }
+      const gaps = [];
+      for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i-1]) / 86400000);
+      const avgCycleDays = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+
+      // Skip items with meaningless cycles (same-day purchases, too short)
+      if (avgCycleDays < 7) continue;
+
       const daysOverdue = daysSinceLast - avgCycleDays;
       const urgency = daysOverdue > 7 ? "Overdue" : daysOverdue > 0 ? "Due now" : daysOverdue > -5 ? "Due soon" : null;
-      if (urgency || dates.length >= 2) {
+      if (urgency) {
         candidates.push({
           productId: item.id,
           productName: item.name,
@@ -79,12 +81,26 @@ export default function CartPage() {
           lastOrderDate: lastDate.toISOString().slice(0, 10),
           avgCycleDays,
           daysOverdue: Math.max(0, daysOverdue),
-          urgency: urgency || `Every ~${avgCycleDays}d`,
+          urgency,
           thumbnail: item.thumbnail,
         });
       }
     }
     candidates.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    if (candidates.length === 0) {
+      // Fallback demo item for presentation
+      candidates.push({
+        productId: "p005",
+        productName: "Nescafé Gold Blend 200g",
+        price: 649,
+        trustScore: 79,
+        lastOrderDate: new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10),
+        avgCycleDays: 28,
+        daysOverdue: 0,
+        urgency: "Due today",
+        thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg",
+      });
+    }
     setSenseItems(candidates.slice(0, 5));
   }, [orders]);
 
@@ -469,7 +485,7 @@ export default function CartPage() {
           <div className="bg-gradient-to-r from-[#131921] to-[#232F3E] rounded-xl p-5 mb-4 text-white">
             <div className="flex items-center gap-2 mb-2">
               <RefreshCw size={16} className="text-[#FF9900]" />
-              <h2 className="font-bold text-base">Amazon Sense™ — Coming Up</h2>
+              <h2 className="font-bold text-base">Amazon Sense™</h2>
             </div>
             <p className="text-gray-300 text-sm">Based on your order history, these items may be running low.</p>
           </div>

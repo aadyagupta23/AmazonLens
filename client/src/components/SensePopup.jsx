@@ -1,46 +1,111 @@
 import React, { useEffect, useState, useRef } from "react";
 import { X, RefreshCw, ShoppingCart } from "lucide-react";
 import { useCart } from "../contexts/CartContext.jsx";
+import { useOrders } from "../contexts/OrdersContext.jsx";
 import { formatPrice } from "../utils/format.js";
-import axios from "axios";
-import { API } from "../utils/format.js";
 
 export default function SensePopup() {
   const [visible, setVisible] = useState(false);
   const [item, setItem] = useState(null);
-  const { addToCart } = useCart();
+  const { addToCart, items: cartItems } = useCart();
+  const { orders } = useOrders();
   const dismissTimer = useRef(null);
+  const hasShown = useRef(false);
 
   useEffect(() => {
-    const showTimer = setTimeout(async () => {
-      try {
-        const { data } = await axios.get(`${API}/api/sense/predictions`);
-        if (data.predictions?.length > 0) {
-          setItem(data.predictions[0]);
-          setVisible(true);
-          dismissTimer.current = setTimeout(() => setVisible(false), 12000);
+    // Only show once per session
+    if (hasShown.current) return;
+
+    // Compute reorder predictions from real order history
+    const productMap = {};
+    if (orders && orders.length > 0) {
+      for (const order of orders) {
+        for (const item of (order.items || [])) {
+          if (!productMap[item.id]) {
+            productMap[item.id] = { item, dates: [] };
+          }
+          productMap[item.id].dates.push(new Date(order.placedAt));
         }
-      } catch {
-        // Fallback mock item
-        setItem({
-          productId: "p005",
-          productName: "Nescafé Gold Blend 200g",
-          price: 649,
-          trustScore: 88,
-          urgency: "Due today",
-          daysOverdue: 0,
-          thumbnail: "https://m.media-amazon.com/images/I/71Rj8EH9Y+L._AC_SL1500_.jpg"
-        });
-        setVisible(true);
-        dismissTimer.current = setTimeout(() => setVisible(false), 12000);
       }
-    }, 3000);
+    }
+
+    const today = new Date();
+    const candidates = [];
+
+    for (const [pid, { item, dates }] of Object.entries(productMap)) {
+      if (dates.length < 3) continue; // Need at least 3 orders to detect a repeating pattern
+      dates.sort((a, b) => a - b);
+      const lastDate = dates[dates.length - 1];
+      const daysSinceLast = Math.round((today - lastDate) / 86400000);
+
+      // Calculate gaps between consecutive orders
+      const gaps = [];
+      for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i - 1]) / 86400000);
+      const avgCycleDays = Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length);
+
+      // Skip items with meaningless cycles (ordered multiple times same day / too short)
+      if (avgCycleDays < 7) continue;
+
+      // Check if the ordering is periodic (consistent gaps)
+      // A pattern is periodic if the standard deviation of gaps is less than 40% of the average
+      const variance = gaps.reduce((s, g) => s + Math.pow(g - avgCycleDays, 2), 0) / gaps.length;
+      const stdDev = Math.sqrt(variance);
+      const isPeriodic = stdDev <= avgCycleDays * 0.4;
+
+      if (!isPeriodic) continue; // Skip items without a clear repeating pattern
+
+      const daysOverdue = daysSinceLast - avgCycleDays;
+
+      // Only suggest if due soon, due now, or overdue
+      if (daysOverdue >= -3) {
+        // Skip items already in cart
+        if (cartItems.find((c) => c.id === pid)) continue;
+
+        const urgency = daysOverdue > 7 ? "Overdue" : daysOverdue > 0 ? "Due now" : "Due soon";
+        candidates.push({
+          productId: item.id,
+          productName: item.name,
+          price: item.price,
+          thumbnail: item.thumbnail || item.image,
+          urgency,
+          daysOverdue: Math.max(0, daysOverdue),
+          avgCycleDays,
+          daysSinceLast,
+          orderCount: dates.length,
+        });
+      }
+    }
+
+    // Prioritize: most overdue first, then by order count (stronger pattern)
+    candidates.sort((a, b) => b.daysOverdue - a.daysOverdue || b.orderCount - a.orderCount);
+
+    if (candidates.length === 0) {
+      // Fallback demo item when no order history exists
+      candidates.push({
+        productId: "p005",
+        productName: "Nescafé Gold Blend 200g",
+        price: 649,
+        thumbnail: "https://images-na.ssl-images-amazon.com/images/P/B00EUKVIE8.01.L.jpg",
+        urgency: "Due today",
+        daysOverdue: 0,
+        avgCycleDays: 28,
+        daysSinceLast: 28,
+      });
+    }
+
+    // Show popup after a short delay
+    const showTimer = setTimeout(() => {
+      hasShown.current = true;
+      setItem(candidates[0]);
+      setVisible(true);
+      dismissTimer.current = setTimeout(() => setVisible(false), 12000);
+    }, 4000);
 
     return () => {
       clearTimeout(showTimer);
       if (dismissTimer.current) clearTimeout(dismissTimer.current);
     };
-  }, []);
+  }, [orders, cartItems]);
 
   const dismiss = () => {
     setVisible(false);
@@ -53,9 +118,8 @@ export default function SensePopup() {
         id: item.productId,
         name: item.productName,
         price: item.price,
-        trustScore: item.trustScore,
         thumbnail: item.thumbnail,
-        isPrime: true
+        isPrime: true,
       });
     }
     dismiss();
@@ -106,7 +170,8 @@ export default function SensePopup() {
           </div>
 
           <p className="text-xs text-[#565959] mb-3">
-            You usually reorder this every <strong>28 days</strong>. Last ordered 28 days ago.
+            You usually reorder this every <strong>{item.avgCycleDays} days</strong>.
+            {item.daysSinceLast > 0 && <> Last ordered <strong>{item.daysSinceLast} days</strong> ago.</>}
           </p>
 
           <div className="flex gap-2">
