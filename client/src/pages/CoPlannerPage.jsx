@@ -593,6 +593,16 @@ function PlanItem({ item, members, currentUser, onAssign, onUpdateStatus, onRemo
             </div>
           </div>
         )}
+
+        {/* Purchased by badge — shows when item is fully purchased */}
+        {isPurchased && item.purchasedBy && (
+          <div className="flex items-center gap-1 mt-1">
+            <CheckCircle2 size={10} className="text-green-600" />
+            <span className="text-[10px] text-green-700 font-medium">
+              Purchased by {item.purchasedBy === currentUser ? "You" : item.purchasedBy}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Vote + Delete */}
@@ -661,7 +671,7 @@ export default function CoPlannerPage() {
   const joinToken = searchParams.get("join");
 
   const { user } = useAuth();
-  const { plans: trackedPlans, trackPlan, loadPlan, addToPlan, memberName, deletePlan, dashboardResetKey } = useCoPlanner();
+  const { plans: trackedPlans, trackPlan, loadPlan, addToPlan, memberName, deletePlan, dashboardResetKey, activePlan, setActivePlan } = useCoPlanner();
   const { addToCart } = useCart();
 
   // Handle redirect back from login after join attempt
@@ -703,6 +713,7 @@ export default function CoPlannerPage() {
           setPlan(d.plan);
           if (d.plan) {
             trackPlan(d.plan);
+            setActivePlan(d.plan);
             loadRecommendations(d.plan.id);
             loadAiSuggestions(d.plan.id);
           }
@@ -711,6 +722,20 @@ export default function CoPlannerPage() {
         .finally(() => setLoading(false));
     }
   }, [planIdFromUrl]);
+
+  // Sync local plan state with real-time updates from socket (via context)
+  // Use a ref to skip sync when we just made a local update
+  const localUpdateRef = useRef(false);
+
+  useEffect(() => {
+    if (localUpdateRef.current) {
+      localUpdateRef.current = false;
+      return;
+    }
+    if (activePlan && plan && activePlan.id === plan.id) {
+      setPlan(activePlan);
+    }
+  }, [activePlan]);
 
   // Join via token — use authenticated user name
   useEffect(() => {

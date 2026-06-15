@@ -97,9 +97,15 @@ export default function CartPage() {
           .then((r) => r.ok ? r.json() : null)
           .then((d) => {
             if (!d?.plan) return null;
-            const myItems = d.plan.items.filter((item) =>
-              item.assignedTo === userName || (!item.assignedTo && item.addedBy === userName)
-            );
+            const myItems = d.plan.items.filter((item) => {
+              // Only show items that are NOT already purchased/delivered
+              if (item.status === "purchased" || item.status === "delivered") return false;
+              // Show items assigned to user, or any unassigned item (any member can buy)
+              const nameLower = userName.toLowerCase();
+              if (item.assignedTo && item.assignedTo.toLowerCase() === nameLower) return true;
+              if (!item.assignedTo) return true;
+              return false;
+            });
             if (myItems.length === 0) return null;
             return { planId: d.plan.id, name: d.plan.name, items: myItems, budget: d.plan.budget, memberCount: d.plan.members?.length || 1 };
           })
@@ -113,7 +119,7 @@ export default function CartPage() {
     setSelected((prev) => {
       const next = { ...prev };
       items.forEach((i) => { if (next[i.id] === undefined) next[i.id] = true; });
-      sharedPlans.forEach((sp) => sp.items.forEach((i) => { if (next[`cp_${i.productId}`] === undefined) next[`cp_${i.productId}`] = true; }));
+      sharedPlans.forEach((sp) => sp.items.forEach((i) => { if (next[`cp_${sp.planId}_${i.productId}`] === undefined) next[`cp_${sp.planId}_${i.productId}`] = true; }));
       return next;
     });
   }, [items, sharedPlans]);
@@ -141,9 +147,13 @@ export default function CartPage() {
           .then((r) => r.ok ? r.json() : null)
           .then((d) => {
             if (!d?.plan) return null;
-            const myItems = d.plan.items.filter((item) =>
-              item.assignedTo === userName || (!item.assignedTo && item.addedBy === userName)
-            );
+            const myItems = d.plan.items.filter((item) => {
+              if (item.status === "purchased" || item.status === "delivered") return false;
+              const nameLower = userName.toLowerCase();
+              if (item.assignedTo && item.assignedTo.toLowerCase() === nameLower) return true;
+              if (!item.assignedTo) return true;
+              return false;
+            });
             if (myItems.length === 0) return null;
             return { planId: d.plan.id, name: d.plan.name, items: myItems, budget: d.plan.budget, memberCount: d.plan.members?.length || 1 };
           })
@@ -166,10 +176,10 @@ export default function CartPage() {
   };
 
   const togglePlanSelection = (sp) => {
-    const allSelected = sp.items.every((i) => isSelected(`cp_${i.productId}`));
+    const allSelected = sp.items.every((i) => isSelected(`cp_${sp.planId}_${i.productId}`));
     setSelected((prev) => {
       const next = { ...prev };
-      sp.items.forEach((i) => { next[`cp_${i.productId}`] = !allSelected; });
+      sp.items.forEach((i) => { next[`cp_${sp.planId}_${i.productId}`] = !allSelected; });
       return next;
     });
   };
@@ -178,7 +188,7 @@ export default function CartPage() {
     setSelected((prev) => {
       const next = { ...prev };
       items.forEach((i) => { next[i.id] = true; });
-      sharedPlans.forEach((sp) => sp.items.forEach((i) => { next[`cp_${i.productId}`] = true; }));
+      sharedPlans.forEach((sp) => sp.items.forEach((i) => { next[`cp_${sp.planId}_${i.productId}`] = true; }));
       return next;
     });
   };
@@ -187,7 +197,7 @@ export default function CartPage() {
     setSelected((prev) => {
       const next = { ...prev };
       items.forEach((i) => { next[i.id] = false; });
-      sharedPlans.forEach((sp) => sp.items.forEach((i) => { next[`cp_${i.productId}`] = false; }));
+      sharedPlans.forEach((sp) => sp.items.forEach((i) => { next[`cp_${sp.planId}_${i.productId}`] = false; }));
       return next;
     });
   };
@@ -197,7 +207,7 @@ export default function CartPage() {
   const visibleShared = hideShared ? [] : sharedPlans;
   const allVisibleItems = [
     ...personalItems.map((i) => ({ id: i.id, price: i.price * i.qty, qty: i.qty })),
-    ...visibleShared.flatMap((sp) => sp.items.map((i) => ({ id: `cp_${i.productId}`, price: (i.product?.price || 0) * (i.quantityNeeded || 1), qty: i.quantityNeeded || 1, planId: sp.planId, productId: i.productId }))),
+    ...visibleShared.flatMap((sp) => sp.items.map((i) => ({ id: `cp_${sp.planId}_${i.productId}`, price: (i.product?.price || 0) * (i.quantityNeeded || 1), qty: i.quantityNeeded || 1, planId: sp.planId, productId: i.productId }))),
   ];
   const visibleItemCount = allVisibleItems.reduce((s, i) => s + i.qty, 0);
   const selectedItems = allVisibleItems.filter((i) => isSelected(i.id));
@@ -311,7 +321,7 @@ export default function CartPage() {
                 {!hideShared && sharedPlans.map((sp) => {
                   const isExpanded = expandedPlans[sp.planId] || false;
                   const planTotal = sp.items.reduce((s, i) => s + (i.product?.price || 0) * (i.quantityNeeded || 1), 0);
-                  const allPlanSelected = sp.items.every((i) => isSelected(`cp_${i.productId}`));
+                  const allPlanSelected = sp.items.every((i) => isSelected(`cp_${sp.planId}_${i.productId}`));
 
                   return (
                     <div key={sp.planId} className="bg-white rounded shadow-sm mb-3 overflow-hidden">
@@ -336,7 +346,7 @@ export default function CartPage() {
                           {sp.items.map((item) => {
                             const p = item.product;
                             if (!p) return null;
-                            const itemKey = `cp_${item.productId}`;
+                            const itemKey = `cp_${sp.planId}_${item.productId}`;
                             return (
                               <div key={item.productId} className={`px-5 py-4 border-b border-gray-100 last:border-0 flex gap-4 ${!isSelected(itemKey) ? "opacity-60" : ""}`}>
                                 <Checkbox checked={isSelected(itemKey)} onChange={() => toggleItem(itemKey)} />
@@ -397,7 +407,36 @@ export default function CartPage() {
                   <input type="checkbox" className="accent-[#FF9900]" />
                   This order contains a gift
                 </label>
-                <button onClick={() => navigate("/checkout")} className="w-full btn-primary py-2.5 rounded-full font-bold text-sm">
+                <button onClick={() => {
+                  // Build checkout payload: personal items + shared cart items (kept separate)
+                  const checkoutSharedItems = [];
+                  visibleShared.forEach((sp) => {
+                    sp.items.forEach((item) => {
+                      if (isSelected(`cp_${sp.planId}_${item.productId}`) && item.product) {
+                        checkoutSharedItems.push({
+                          coPlanId: sp.planId,
+                          coPlanName: sp.name,
+                          productId: item.productId,
+                          name: item.product.name,
+                          price: item.product.price,
+                          image: item.product.image,
+                          quantity: item.quantityNeeded || 1,
+                        });
+                      }
+                    });
+                  });
+                  // Store shared items for checkout (NOT added to personal cart)
+                  localStorage.setItem("al_checkout_shared", JSON.stringify(checkoutSharedItems));
+
+                  // Remove personal cart items that are NOT selected
+                  items.forEach((item) => {
+                    if (!isSelected(item.id)) {
+                      removeFromCart(item.id);
+                    }
+                  });
+
+                  navigate("/checkout");
+                }} className="w-full btn-primary py-2.5 rounded-full font-bold text-sm">
                   Proceed to Buy ({selectedCount} Item{selectedCount !== 1 ? "s" : ""})
                 </button>
 

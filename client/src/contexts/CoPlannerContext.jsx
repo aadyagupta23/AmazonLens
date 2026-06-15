@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { API } from "../utils/format.js";
+import { getSocket } from "../utils/socket.js";
 
 const CoPlannerContext = createContext(null);
 
@@ -220,6 +221,46 @@ export function CoPlannerProvider({ children }) {
       return { error: true, message: "Network error" };
     }
   }, [memberName]);
+
+  // ── Socket.IO: real-time sync for co-plan purchases ───────────────────────
+  const joinedRoomsRef = useRef(new Set());
+
+  useEffect(() => {
+    const socket = getSocket();
+    const joinedRooms = joinedRoomsRef.current;
+
+    // Join rooms for all plans the user is part of
+    plans.forEach((p) => {
+      if (!joinedRooms.has(p.id)) {
+        socket.emit("coplan:join", { planId: p.id });
+        joinedRooms.add(p.id);
+      }
+    });
+
+    // Leave rooms for plans no longer tracked
+    const toLeave = [...joinedRooms].filter((id) => !plans.find((p) => p.id === id));
+    toLeave.forEach((planId) => {
+      socket.emit("coplan:leave", { planId });
+      joinedRooms.delete(planId);
+    });
+  }, [plans]);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleItemPurchased = (data) => {
+      // Update activePlan if it matches the incoming plan update
+      setActivePlan((prev) => {
+        if (!prev || prev.id !== data.planId) return prev;
+        return data.plan || prev;
+      });
+    };
+
+    socket.on("coplan:item-purchased", handleItemPurchased);
+    return () => {
+      socket.off("coplan:item-purchased", handleItemPurchased);
+    };
+  }, []);
 
   return (
     <CoPlannerContext.Provider value={{

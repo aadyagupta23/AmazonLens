@@ -26,6 +26,12 @@ import { fileURLToPath } from "url";
 const router = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// ─── Socket.IO reference (set by server/index.js) ────────────────────────────
+let io = null;
+export function setIO(ioInstance) {
+  io = ioInstance;
+}
+
 // ─── Groq client (lazy init) ─────────────────────────────────────────────────
 let groq = null;
 function getGroq() {
@@ -372,6 +378,110 @@ router.post("/create", (req, res) => {
   res.json({ plan: enrichPlan(plan) });
 });
 
+// ─── POST /api/co-planner/checkout-purchased ─────────────────────────────────
+// Called automatically after successful checkout. Marks matching items as
+// purchased across ALL plans the member belongs to.
+router.post("/checkout-purchased", async (req, res) => {
+  const { productIds, memberName } = req.body;
+  if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+    return res.status(400).json({ error: "productIds array required" });
+  }
+  if (!memberName) {
+    return res.status(400).json({ error: "memberName required" });
+  }
+
+  const memberLower = memberName.toLowerCase();
+  const results = []; // track what was marked
+
+  for (const [planId, plan] of plans) {
+    if (plan.status === "archived") continue;
+    // Only process plans this member belongs to
+    if (!plan.members.some((m) => m.name.toLowerCase() === memberLower)) continue;
+
+    for (const item of plan.items) {
+      if (!productIds.includes(item.productId)) continue;
+      // Skip already fully purchased items (prevent duplicates)
+      if (item.status === "purchased" || item.status === "delivered") continue;
+
+      const remaining = (item.quantityNeeded || 1) - (item.quantityPurchased || 0);
+      if (remaining <= 0) continue;
+
+      // Mark the full remaining quantity as purchased
+      item.quantityPurchased = item.quantityNeeded || 1;
+      item.status = computeItemStatus(item);
+      item.purchasedBy = memberName;
+      item.purchasedAt = now();
+
+      const product = await getProductAsync(item.productId);
+      addActivity(plan, `"${product?.name || item.productId}" auto-marked as purchased (checkout)`, memberName, { productId: item.productId });
+
+      results.push({ planId, productId: item.productId, purchasedBy: memberName });
+
+      // Emit real-time update to all plan members
+      if (io) {
+        const enriched = await enrichPlanAsync(plan);
+        io.to(`coplan:${planId}`).emit("coplan:item-purchased", {
+          planId,
+          productId: item.productId,
+          purchasedBy: memberName,
+          purchasedAt: item.purchasedAt,
+          quantityPurchased: item.quantityPurchased,
+          status: item.status,
+          plan: enriched,
+        });
+      }
+    }
+  }
+
+  res.json({ success: true, marked: results });
+});
+
+// ─── POST /api/co-planner/:planId/checkout-mark ──────────────────────────────
+// Marks specific items as purchased in a SINGLE plan (called after checkout)
+router.post("/:planId/checkout-mark", async (req, res) => {
+  const plan = plans.get(req.params.planId);
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+
+  const { productIds, memberName } = req.body;
+  if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+    return res.status(400).json({ error: "productIds array required" });
+  }
+  if (!memberName) {
+    return res.status(400).json({ error: "memberName required" });
+  }
+
+  const results = [];
+
+  for (const item of plan.items) {
+    if (!productIds.includes(item.productId)) continue;
+    // Skip already fully purchased items
+    if (item.status === "purchased" || item.status === "delivered") continue;
+
+    const remaining = (item.quantityNeeded || 1) - (item.quantityPurchased || 0);
+    if (remaining <= 0) continue;
+
+    item.quantityPurchased = item.quantityNeeded || 1;
+    item.status = computeItemStatus(item);
+    item.purchasedBy = memberName;
+    item.purchasedAt = now();
+
+    const product = await getProductAsync(item.productId);
+    addActivity(plan, `"${product?.name || item.productId}" auto-marked as purchased (checkout)`, memberName, { productId: item.productId });
+
+    results.push({ productId: item.productId, purchasedBy: memberName });
+  }
+
+  if (results.length > 0 && io) {
+    const enriched = await enrichPlanAsync(plan);
+    io.to(`coplan:${plan.id}`).emit("coplan:item-purchased", {
+      planId: plan.id,
+      plan: enriched,
+    });
+  }
+
+  res.json({ success: true, marked: results });
+});
+
 // ─── GET /api/co-planner/:planId ─────────────────────────────────────────────
 router.get("/:planId", async (req, res) => {
   const plan = plans.get(req.params.planId);
@@ -592,13 +702,40 @@ router.post("/:planId/mark-purchased", async (req, res) => {
   item.quantityPurchased = Math.max(0, oldPurchased + addCount);
   item.status = computeItemStatus(item);
 
+  // Store purchasedBy/purchasedAt when fully purchased
+  if (item.status === "purchased" && !item.purchasedBy) {
+    item.purchasedBy = memberName || "System";
+    item.purchasedAt = now();
+  }
+
+  // Clear purchasedBy/purchasedAt when no longer fully purchased
+  if (item.status !== "purchased" && item.status !== "delivered") {
+    item.purchasedBy = null;
+    item.purchasedAt = null;
+  }
+
   const product = await getProductAsync(productId);
   const action = addCount > 0
     ? `Marked ${addCount} of "${product?.name || productId}" as purchased (${oldPurchased} → ${item.quantityPurchased})`
     : `Adjusted purchased count for "${product?.name || productId}" (${oldPurchased} → ${item.quantityPurchased})`;
   addActivity(plan, action, memberName || "System", { productId });
 
-  res.json({ plan: await enrichPlanAsync(plan) });
+  const enriched = await enrichPlanAsync(plan);
+
+  // Emit real-time update to all plan members
+  if (io) {
+    io.to(`coplan:${plan.id}`).emit("coplan:item-purchased", {
+      planId: plan.id,
+      productId,
+      purchasedBy: item.purchasedBy,
+      purchasedAt: item.purchasedAt,
+      quantityPurchased: item.quantityPurchased,
+      status: item.status,
+      plan: enriched,
+    });
+  }
+
+  res.json({ plan: enriched });
 });
 
 // ─── POST /api/co-planner/:planId/assign ─────────────────────────────────────
@@ -1033,5 +1170,4 @@ ${catalogue}`,
 
   res.json({ suggestions: scored, aiPowered: false });
 });
-
 export default router;

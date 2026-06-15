@@ -13,7 +13,7 @@ import authRoutes from "./routes/auth.js";
 import dnaRoutes from "./routes/dna.js";
 import smartSearch from "./routes/smartSearch.js";
 import priceDropRoutes from "./routes/priceDrop.js";
-import coPlannerRoutes from "./routes/coPlanner.js";
+import { default as coPlannerRoutes, setIO as setCoPlannerIO } from "./routes/coPlanner.js";
 import customerRoutes from "./routes/customers.js";
 import companyRoutes from "./routes/companies.js";
 import bundleRoutes from "./routes/bundles.js";
@@ -40,7 +40,19 @@ const io = new Server(httpServer, {
   cors: { origin: "*" },
 });
 
+// Pass io to co-planner routes for real-time updates
+setCoPlannerIO(io);
+
 io.on("connection", (socket) => {
+  // ── Co-Planner: join plan room for real-time updates ───────────────────
+  socket.on("coplan:join", ({ planId }) => {
+    if (planId) socket.join(`coplan:${planId}`);
+  });
+
+  socket.on("coplan:leave", ({ planId }) => {
+    if (planId) socket.leave(`coplan:${planId}`);
+  });
+
   // ── Witness goes online for a product ──────────────────────────────────
   socket.on("witness:online", ({ productId, ...info }) => {
     registerWitness(socket.id, productId, info);

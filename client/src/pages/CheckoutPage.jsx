@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../contexts/CartContext.jsx";
 import { useOrders } from "../contexts/OrdersContext.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { formatPrice } from "../utils/format.js";
+import { formatPrice, API } from "../utils/format.js";
 import { Check, MapPin, CreditCard, ShoppingBag } from "lucide-react";
 
 const PAYMENT_OPTIONS = [
@@ -60,10 +60,26 @@ export default function CheckoutPage() {
   const [selectedPayment, setSelectedPayment] = useState(PAYMENT_OPTIONS[0]);
   const [placedOrder, setPlacedOrder] = useState(null);
 
+  // Shared cart items passed from CartPage (NOT in personal cart)
+  const [sharedCheckoutItems] = useState(() => {
+    try {
+      const raw = localStorage.getItem("al_checkout_shared");
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) { return []; }
+  });
+
+  // Combined items for checkout display and total calculation
+  const allCheckoutItems = [
+    ...items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, thumbnail: i.thumbnail, isShared: false })),
+    ...sharedCheckoutItems.map((i) => ({ id: i.productId, name: i.name, price: i.price, qty: i.quantity, thumbnail: i.image, isShared: true, coPlanId: i.coPlanId, coPlanName: i.coPlanName })),
+  ];
+  const checkoutTotal = allCheckoutItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const checkoutItemCount = allCheckoutItems.reduce((s, i) => s + i.qty, 0);
+
   const addressSummary = `${addressForm.line1}, ${addressForm.city} ${addressForm.pin}`.trim().replace(/^,\s*/, "");
   const addressValid = addressForm.name && addressForm.line1 && addressForm.city && addressForm.pin;
 
-  if (items.length === 0 && step < 4) {
+  if (allCheckoutItems.length === 0 && step < 4) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <ShoppingBag size={48} className="text-gray-300 mx-auto mb-4" />
@@ -79,7 +95,33 @@ export default function CheckoutPage() {
   }
 
   const handlePlaceOrder = () => {
-    const order = placeOrder({ items, total, address: addressSummary, payment: selectedPayment, userEmail: user?.email });
+    // Place order with all items (personal + shared)
+    const orderItems = allCheckoutItems.map((i) => ({
+      id: i.id, name: i.name, price: i.price, qty: i.qty, thumbnail: i.thumbnail,
+      ...(i.isShared ? { coPlanId: i.coPlanId, coPlanName: i.coPlanName } : {}),
+    }));
+    const order = placeOrder({ items: orderItems, total: checkoutTotal, address: addressSummary, payment: selectedPayment, userEmail: user?.email });
+
+    // Auto-mark shared cart items as purchased in their specific plans
+    if (user?.name && sharedCheckoutItems.length > 0) {
+      // Group by plan: { planId: [productId, ...] }
+      const planPurchases = {};
+      sharedCheckoutItems.forEach((i) => {
+        if (!planPurchases[i.coPlanId]) planPurchases[i.coPlanId] = [];
+        planPurchases[i.coPlanId].push(i.productId);
+      });
+
+      Object.entries(planPurchases).forEach(([planId, productIds]) => {
+        fetch(`${API}/api/co-planner/${planId}/checkout-mark`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productIds, memberName: user.name }),
+        }).catch(() => {});
+      });
+    }
+
+    // Clean up
+    localStorage.removeItem("al_checkout_shared");
     clearCart();
     setPlacedOrder(order);
     setStep(4);
@@ -241,8 +283,8 @@ export default function CheckoutPage() {
             {step === 3 && (
               <div className="px-5 pb-5">
                 <div className="divide-y divide-gray-100 mb-5">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 py-3">
+                  {allCheckoutItems.map((item) => (
+                    <div key={`${item.coPlanId || "personal"}_${item.id}`} className="flex items-center gap-3 py-3">
                       <img
                         src={item.thumbnail}
                         alt={item.name}
@@ -252,6 +294,9 @@ export default function CheckoutPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-[#0F1111] line-clamp-2 leading-snug">{item.name}</p>
                         <p className="text-xs text-[#565959] mt-0.5">Qty: {item.qty}</p>
+                        {item.isShared && (
+                          <p className="text-[10px] text-[#F57C00] mt-0.5">From: {item.coPlanName}</p>
+                        )}
                       </div>
                       <span className="text-sm font-bold text-[#0F1111] flex-shrink-0">
                         {formatPrice(item.price * item.qty)}
@@ -262,8 +307,8 @@ export default function CheckoutPage() {
 
                 <div className="bg-gray-50 rounded-xl p-4 mb-4">
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-[#565959]">Items ({itemCount})</span>
-                    <span className="font-medium">{formatPrice(total)}</span>
+                    <span className="text-[#565959]">Items ({checkoutItemCount})</span>
+                    <span className="font-medium">{formatPrice(checkoutTotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1.5">
                     <span className="text-[#565959]">Delivery</span>
@@ -271,7 +316,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="border-t border-gray-200 pt-2.5 mt-2.5 flex justify-between">
                     <span className="font-bold text-[#0F1111]">Order Total</span>
-                    <span className="font-bold text-[#B12704] text-lg">{formatPrice(total)}</span>
+                    <span className="font-bold text-[#B12704] text-lg">{formatPrice(checkoutTotal)}</span>
                   </div>
                 </div>
 
@@ -282,7 +327,7 @@ export default function CheckoutPage() {
                   onClick={handlePlaceOrder}
                   className="w-full bg-[#FFA41C] hover:bg-[#FF8F00] text-[#0F1111] font-bold py-3 rounded-full text-base"
                 >
-                  Place your order &nbsp;·&nbsp; {formatPrice(total)}
+                  Place your order &nbsp;·&nbsp; {formatPrice(checkoutTotal)}
                 </button>
               </div>
             )}
@@ -308,8 +353,8 @@ export default function CheckoutPage() {
             </p>
             <div className="border-t border-gray-200 pt-3 space-y-1.5">
               <div className="flex justify-between text-sm">
-                <span className="text-[#565959]">Items ({itemCount}):</span>
-                <span className="font-bold">{formatPrice(total)}</span>
+                <span className="text-[#565959]">Items ({checkoutItemCount}):</span>
+                <span className="font-bold">{formatPrice(checkoutTotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[#565959]">Delivery:</span>
@@ -317,7 +362,7 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between font-bold pt-2 border-t border-gray-200">
                 <span>Order Total:</span>
-                <span className="text-[#B12704]">{formatPrice(total)}</span>
+                <span className="text-[#B12704]">{formatPrice(checkoutTotal)}</span>
               </div>
             </div>
           </div>
